@@ -136,86 +136,50 @@ def fetch_sheet_data():
         return pd.DataFrame()
 
 def clean_sdg_name(sdg):
-    """Standardize SDG names"""
+    """Standardize SDG names based on Google Form options"""
     if pd.isna(sdg):
         return None
-    sdg = str(sdg).lower()
-    for full_name in SDG_INFO.keys():
-        if any(word in sdg for word in full_name.lower().split()):
-            return full_name
-    return sdg.title()
+    
+    # Convert to lowercase and strip extra spaces
+    sdg = str(sdg).lower().strip()
+    
+    # Map Google Form SDG names to SDG_INFO keys
+    sdg_mapping = {
+        'good health and well-being': 'Good Health and Well-being',
+        'decent work and economic growth': 'Decent Work and Economic Growth',
+        'reduced inequalities': 'Reduced Inequalities',
+        'quality education': 'Quality Education',
+        'gender equality': 'Gender Equality',
+        'sustainable cities and communities': 'Sustainable Cities and Communities',
+        'climate action': 'Climate Action',
+        'responsible consumption and production': 'Responsible Consumption and Production'
+    }
+    
+    # Return the mapped SDG name, or the original SDG if no match is found
+    return sdg_mapping.get(sdg, sdg.title())
 
-def reshape_survey_data(df):
-    """Reshape survey data with multiple activities per row into long format"""
-    all_activities = []
+def clean_sdg_name(sdg):
+    """Standardize SDG names based on Google Form options"""
+    if pd.isna(sdg):
+        return None
     
-    # Debug: Print column names
+    # Convert to lowercase and strip extra spaces
+    sdg = str(sdg).lower().strip()
     
-    # Iterate through each row
-    for _, row in df.iterrows():
-        # Get base data
-        base_data = {
-            'Timestamp': row['Timestamp'],
-            'Hotel': row['Hotel']
-        }
-        
-        # Process up to 5 activities per row
-        for i in range(1, 6):
-            prefix = f"{i}."
-            
-            # Check if activity exists
-            activity_name_col = f"{prefix}Acitivity Name"
-            if activity_name_col not in row or pd.isna(row[activity_name_col]):
-                continue
-            
-            # Create activity dictionary
-            activity = base_data.copy()
-            activity.update({
-                'Activity Name': row[f"{prefix}Acitivity Name"],
-                'Organization': row[f"{prefix}Charity/Organisation Supported"],
-                'Activity Date': row[f"{prefix}When did the activity happen?"],
-                'Contribution Type': row[f"{prefix}Contribution Type"],
-                'SDG': row[f"{prefix}Which SDG would this fall into?"],
-                'Volunteer Hours': row[f"{prefix}If volunteering, how many hours?"],
-                'Financial Impact': row[f"{prefix}Everything else: Financial Impact or Equiv (If meeting room or guest - how much would that have cost, food donation amount, etc)"]
-            })
-            
-            # Only add if essential fields are present
-            if not pd.isna(activity['Activity Name']) and not pd.isna(activity['Activity Date']):
-                all_activities.append(activity)
+    # Map Google Form SDG names to SDG_INFO keys
+    sdg_mapping = {
+        'good health and well-being': 'Good Health and Well-being',
+        'decent work and economic growth': 'Decent Work and Economic Growth',
+        'reduced inequalities': 'Reduced Inequalities',
+        'quality education': 'Quality Education',
+        'gender equality': 'Gender Equality',
+        'sustainable cities and communities': 'Sustainable Cities and Communities',
+        'climate action': 'Climate Action',
+        'responsible consumption and production': 'Responsible Consumption and Production'
+    }
     
-    # Convert to DataFrame
-    if not all_activities:
-        # st.error("No valid activities found in the data")
-        return pd.DataFrame()
-    
-    reshaped_df = pd.DataFrame(all_activities)
-    
-    # Debug: Print data types before conversion
-    
-    # Clean and convert data types
-    try:
-        # Convert dates
-        reshaped_df['Activity Date'] = pd.to_datetime(reshaped_df['Activity Date'], format='%d/%m/%Y')
-        
-        # Clean SDG names
-        reshaped_df['SDG'] = reshaped_df['SDG'].apply(clean_sdg_name)
-        
-        # Convert numeric fields
-        reshaped_df['Volunteer Hours'] = pd.to_numeric(reshaped_df['Volunteer Hours'], errors='coerce').fillna(0)
-        reshaped_df['Financial Impact'] = pd.to_numeric(reshaped_df['Financial Impact'], errors='coerce').fillna(0)
-        
-        # Sort by date
-        reshaped_df = reshaped_df.sort_values('Activity Date', ascending=False)
-        
-        # Debug: Print sample of final data
-     
-        
-        return reshaped_df
-        
-    except Exception as e:
-        st.error(f"Error processing data: {str(e)}")
-        return pd.DataFrame()
+    # Return the mapped SDG name, or the original SDG if no match is found
+    return sdg_mapping.get(sdg, sdg.title())
 
 def create_sdg_treemap(data):
     """Create a treemap visualization for SDG activities"""

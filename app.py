@@ -165,7 +165,7 @@ def reshape_survey_data(df):
                 'Contribution Type': row[f"{prefix}Contribution Type"],
                 'SDG': clean_sdg_name(row[f"{prefix}Which SDG would this fall into?"]),  # Clean SDG name
                 'Volunteer Hours': row[f"{prefix}If volunteering, how many hours?"],
-                'Financial Impact': row[f"{prefix}Everything else: Financial Impact or Equiv (If meeting room or guest - how much would that have cost, food donation amount, etc)"]
+                'Financial Impact': row[f"{prefix}Everything else: Financial Impact or Equiv (If meeting room or guest - how much would that have cost, food donation amount, etc) - only note down a number"]
             })
             
             # Only add if essential fields are present

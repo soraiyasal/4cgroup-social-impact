@@ -8,7 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # Page configuration
-st.set_page_config(page_title="ESG Impact Dashboard", layout="wide")
+st.set_page_config(page_title="ESG Impact Dashboard", layout="wide", page_icon = "🤝")
 
 # SDG information and colors
 SDG_INFO = {
@@ -351,18 +351,337 @@ def create_responsive_charts(hotel_metrics, sdg_metrics):
     })
 
 def show_dashboard(data):
-    """Display the main dashboard"""
+    """Display a streamlined, engaging dashboard with all KPIs in one row"""
     # Find the latest month in the data
     latest_date = data['Activity Date'].max()
     
+    # Custom CSS for modern, engaging design with reduced spacing
+    st.markdown("""
+        <style>
+        /* Clean overall aesthetic with reduced spacing */
+        .main {
+            padding: 0.5rem;
+            background-color: #f8fafc;
+        }
+        
+        /* Inspiring header with reduced margins */
+        .dashboard-header {
+            margin-bottom: 12px;
+            text-align: center;
+            padding-bottom: 10px;
+            position: relative;
+        }
+        
+        .dashboard-header h1 {
+            font-size: 24px;
+            margin-bottom: 4px;
+            color: #1e293b;
+        }
+        
+        .dashboard-header p {
+            color: #64748b;
+            font-size: 14px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .dashboard-header::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 2px;
+            background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+            border-radius: 2px;
+        }
+        
+        /* Dashboard sections with reduced padding */
+        .dashboard-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            position: relative;
+            padding-left: 10px;
+        }
+        
+        .section-title::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: linear-gradient(180deg, #3B82F6, #8B5CF6);
+            border-radius: 3px;
+        }
+        
+        /* Charity cards grid with reduced spacing */
+        .charity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .charity-card {
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            transition: transform 0.2s;
+        }
+        
+        .charity-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.08);
+        }
+        
+        .charity-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .charity-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        
+        .charity-name {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .charity-stats {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .charity-stat {
+            text-align: center;
+        }
+        
+        .charity-stat-value {
+            font-weight: 700;
+            font-size: 14px;
+            color: #334155;
+        }
+        
+        .charity-stat-label {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        /* Period selector styling */
+        .period-selector {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            padding: 2px;
+            z-index: 100;
+        }
+        
+        /* Achievement banner */
+        .achievement-banner {
+            background: linear-gradient(135deg, #4F46E5, #7C3AED);
+            border-radius: 8px;
+            padding: 15px;
+            color: white;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .achievement-message {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .achievement-highlight {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        /* Exciting SDG Progress Bar Layout */
+        .sdg-progress-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .sdg-progress-item {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 12px;
+            position: relative;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .sdg-progress-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sdg-progress-item::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 100%;
+        }
+        
+        .sdg-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .sdg-icon-wrapper {
+            position: relative;
+            margin-right: 12px;
+        }
+        
+        .sdg-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sdg-icon-pulse {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            opacity: 0;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            70% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+        
+        .sdg-info {
+            flex: 1;
+        }
+        
+        .sdg-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 3px;
+        }
+        
+        .sdg-description {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        
+        .sdg-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
+        .sdg-count {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .sdg-progress-bar {
+            height: 6px;
+            background-color: #e2e8f0;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .sdg-progress-value {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1.5s ease;
+        }
+        
+        .sdg-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     # Time period selector
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        view_type = st.radio(
-            "Select View",
-            ["Latest Month", "Financial YTD"],
-            horizontal=True
-        )
+    st.markdown('<div class="period-selector">', unsafe_allow_html=True)
+    view_type = st.radio(
+        "",
+        ["Latest Month", "Financial YTD"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Filter data based on selected period
     if view_type == "Latest Month":
@@ -388,155 +707,278 @@ def show_dashboard(data):
         ]
         period_text = f"{fy_text} (Apr-Mar)"
     
-    st.subheader(f"Impact Overview - {period_text}")
+    # Inspiring header
+    st.markdown("""
+        <div class="dashboard-header">
+            <h1>Making an Impact Together</h1>
+            <p>Tracking our journey towards a sustainable future through community engagement and support.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     # Calculate metrics
     total_volunteer_hours = pd.to_numeric(filtered_data['Volunteer Hours'], errors='coerce').sum()
     total_financial_impact = pd.to_numeric(filtered_data['Financial Impact'], errors='coerce').sum()
     total_activities = len(filtered_data)
+    unique_charities = filtered_data['Organization'].nunique()
+    unique_sdgs = filtered_data['SDG'].nunique()
     
-    # Display metrics with enhanced styling
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    # Achievement banner (if there's a notable achievement to highlight)
+    if total_volunteer_hours > 1000 or total_financial_impact > 10000:
         st.markdown("""
-            <div style='text-align: center; padding: 10px; background-color: #f0f9ff; border-radius: 10px; border: 1px solid #3B82F6'>
-                <h3 style='color: #3B82F6; margin: 0;'>Volunteer Hours</h3>
-                <p style='font-size: 24px; font-weight: bold; margin: 10px 0;'>{:,.0f}</p>
+            <div class="achievement-banner">
+                <div class="achievement-message">
+                    Congratulations! We've reached <span class="achievement-highlight">{milestone}</span> in our community impact efforts.
+                </div>
+                <div>
+                    🎉
+                </div>
             </div>
-        """.format(total_volunteer_hours), unsafe_allow_html=True)
+        """.format(
+            milestone=f"£{int(total_financial_impact):,} in financial impact" if total_financial_impact > 10000 
+                    else f"{int(total_volunteer_hours):,} volunteer hours"
+        ), unsafe_allow_html=True)
+    
+    # Single-row metrics display using columns instead of HTML for better rendering
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("⏱️ Volunteer Hours", f"{int(total_volunteer_hours):,}")
     
     with col2:
-        st.markdown("""
-            <div style='text-align: center; padding: 10px; background-color: #f0fdf9; border-radius: 10px; border: 1px solid #10B981'>
-                <h3 style='color: #10B981; margin: 0;'>Financial Impact</h3>
-                <p style='font-size: 24px; font-weight: bold; margin: 10px 0;'>£{:,.0f}</p>
-            </div>
-        """.format(total_financial_impact), unsafe_allow_html=True)
+        st.metric("💰 Financial Impact", f"£{int(total_financial_impact):,}")
     
     with col3:
-        st.markdown("""
-            <div style='text-align: center; padding: 10px; background-color: #faf5ff; border-radius: 10px; border: 1px solid #8B5CF6'>
-                <h3 style='color: #8B5CF6; margin: 0;'>Activities</h3>
-                <p style='font-size: 24px; font-weight: bold; margin: 10px 0;'>{:,.0f}</p>
-            </div>
-        """.format(total_activities), unsafe_allow_html=True)
+        st.metric("📊 Activities", f"{total_activities:,}")
     
-    # Prepare chart data
+    with col4:
+        st.metric("🤝 Charities", f"{unique_charities:,}")
+    
+    with col5:
+        st.metric("🌍 SDGs", f"{unique_sdgs:,}")
+    
+    # Hotel contributions section
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2 class="section-title">Hotel Contributions</h2></div>', unsafe_allow_html=True)
+    
+    # Process hotel data
     hotel_metrics = filtered_data.groupby('Hotel').agg({
         'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
         'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
         'Activity Date': 'count'
-    }).reset_index()
+    }).reset_index().rename(columns={'Activity Date': 'Activities'})
     
+    # Sort by total impact
+    hotel_metrics['Total Impact'] = hotel_metrics['Volunteer Hours'] + (hotel_metrics['Financial Impact'] / 100)
+    hotel_metrics = hotel_metrics.sort_values('Total Impact', ascending=False)
+    
+    # Create hotel impact chart
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Filter to only show hotels with volunteer hours > 0
+        volunteer_hotels = hotel_metrics[hotel_metrics['Volunteer Hours'] > 0].copy()
+        
+        if not volunteer_hotels.empty:
+            # Sort by volunteer hours
+            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False)
+            
+            fig1 = px.bar(
+                volunteer_hotels, 
+                x='Hotel', 
+                y='Volunteer Hours',
+                title=f'Volunteer Hours by Hotel ({len(volunteer_hotels)} contributing)',
+                color_discrete_sequence=['#3B82F6'],
+                template='plotly_white'
+            )
+            fig1.update_layout(
+                height=240,
+                margin=dict(l=20, r=20, t=30, b=40),
+                title_font_size=14,
+                title_x=0.5,
+                xaxis_title="",
+                yaxis_title="Hours",
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                bargap=0.3
+            )
+            fig1.update_traces(
+                marker_line_color='#2563EB',
+                marker_line_width=1,
+                hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
+            )
+            st.plotly_chart(fig1, use_container_width=True)
+        else:
+            st.info("No volunteer hours recorded in this period.")
+    
+    with col2:
+        # Filter to only show hotels with financial impact > 0
+        financial_hotels = hotel_metrics[hotel_metrics['Financial Impact'] > 0].copy()
+        
+        if not financial_hotels.empty:
+            # Sort by financial impact
+            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False)
+            
+            fig2 = px.bar(
+                financial_hotels, 
+                x='Hotel', 
+                y='Financial Impact',
+                title=f'Financial Impact by Hotel ({len(financial_hotels)} contributing)',
+                color_discrete_sequence=['#10B981'],
+                template='plotly_white'
+            )
+            fig2.update_layout(
+                height=240,
+                margin=dict(l=20, r=20, t=30, b=40),
+                title_font_size=14,
+                title_x=0.5,
+                xaxis_title="",
+                yaxis_title="Amount (£)",
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                bargap=0.3
+            )
+            fig2.update_traces(
+                marker_line_color='#059669',
+                marker_line_width=1,
+                hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No financial contributions recorded in this period.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Charity section
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2 class="section-title">Charity Partners</h2></div>', unsafe_allow_html=True)
+    
+    # Process charity data
+    charity_metrics = filtered_data.groupby('Organization').agg({
+        'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+        'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+        'Activity Date': 'count'
+    }).reset_index().rename(columns={'Activity Date': 'Activities'})
+    
+    # Sort by activities
+    charity_metrics = charity_metrics.sort_values('Activities', ascending=False).head(8)
+    
+    # Create charity cards
+    st.markdown('<div class="charity-grid">', unsafe_allow_html=True)
+    
+    # Color palette for charity logos
+    charity_colors = ['#3B82F6', '#10B981', '#7C3AED', '#F59E0B', '#EC4899', '#EF4444', '#06B6D4', '#8B5CF6']
+    
+    for idx, charity in charity_metrics.iterrows():
+        color = charity_colors[idx % len(charity_colors)]
+        st.markdown(f"""
+            <div class="charity-card">
+                <div class="charity-header">
+                    <div class="charity-logo" style="background-color: {color};">
+                        {charity['Organization'][0].upper()}
+                    </div>
+                    <div class="charity-name" title="{charity['Organization']}">
+                        {charity['Organization']}
+                    </div>
+                </div>
+                <div class="charity-stats">
+                    <div class="charity-stat">
+                        <div class="charity-stat-value">{int(charity['Activities'])}</div>
+                        <div class="charity-stat-label">Activities</div>
+                    </div>
+                    <div class="charity-stat">
+                        <div class="charity-stat-value">{int(charity['Volunteer Hours'])}</div>
+                        <div class="charity-stat-label">Hours</div>
+                    </div>
+                    <div class="charity-stat">
+                        <div class="charity-stat-value">£{int(charity['Financial Impact']):,}</div>
+                        <div class="charity-stat-label">Impact</div>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # SDG section - Exciting and visually engaging format
+    st.markdown('<div class="dashboard-section" style="background: linear-gradient(135deg, #f9fafb 0%, #f1f5f9 100%);">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2 class="section-title">SDG Impact</h2></div>', unsafe_allow_html=True)
+    
+    # Process SDG data
     sdg_metrics = filtered_data.groupby('SDG').size().reset_index(name='Count')
     
-    # Enhanced charts
-    st.markdown("### Impact by Hotel")
-    col1, col2 = st.columns(2)
+    if not sdg_metrics.empty:
+        # Sort by count
+        sdg_metrics = sdg_metrics.sort_values('Count', ascending=False)
+        
+        # Get max count for percentage calculation
+        max_count = sdg_metrics['Count'].max()
+        
+        # Create exciting SDG display
+        st.markdown('<div class="sdg-progress-container">', unsafe_allow_html=True)
+        
+        for idx, sdg in sdg_metrics.iterrows():
+            sdg_name = sdg['SDG']
+            sdg_count = sdg['Count']
+            
+            # Get color and info from SDG_INFO if available, or use default
+            if sdg_name in SDG_INFO:
+                color = SDG_INFO[sdg_name]['color']
+                number = SDG_INFO[sdg_name]['number']
+                description = SDG_INFO[sdg_name]['description']
+            else:
+                color = '#777777'
+                number = ""
+                description = ""
+            
+            # Calculate percentage of the max for progress bar
+            percentage = (sdg_count / max_count) * 100
+            
+            # Create status badge based on percentage
+            if percentage >= 75:
+                badge_color = "#22c55e"
+                badge_text = "Strong"
+            elif percentage >= 50:
+                badge_color = "#eab308"
+                badge_text = "Growing"
+            else:
+                badge_color = "#3b82f6"
+                badge_text = "Building"
+            
+            # Create exciting animated SDG card
+            st.markdown(f"""
+                <div class="sdg-progress-item" style="border-left: 6px solid {color};">
+                    <div class="sdg-header">
+                        <div class="sdg-icon-wrapper">
+                            <div class="sdg-icon" style="background-color: {color};">
+                                {number}
+                            </div>
+                            <div class="sdg-icon-pulse" style="border: 3px solid {color};"></div>
+                        </div>
+                        <div class="sdg-info">
+                            <div class="sdg-title">{sdg_name}</div>
+                            <div class="sdg-description">{description}</div>
+                        </div>
+                    </div>
+                    <div class="sdg-stats">
+                        <div class="sdg-count" style="color: {color};">{sdg_count}</div>
+                        <div>
+                            <span class="sdg-badge" style="background-color: {badge_color}20; color: {badge_color};">
+                                {badge_text}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="sdg-progress-bar">
+                        <div class="sdg-progress-value" style="width: {percentage}%; background-color: {color};"></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    with col1:
-        fig1 = px.bar(
-            hotel_metrics, 
-            x='Hotel', 
-            y='Volunteer Hours',
-            title='Volunteer Hours Distribution',
-            color_discrete_sequence=['#3B82F6'],
-            template='plotly_white'
-        )
-        fig1.update_layout(
-            height=400,
-            title_x=0.5,
-            title_font_size=16,
-            xaxis_title="",
-            yaxis_title="Hours",
-            showlegend=False,
-            plot_bgcolor='rgba(0,0,0,0)',
-            bargap=0.3
-        )
-        fig1.update_traces(
-            marker_line_color='#2563EB',
-            marker_line_width=1.5,
-            hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
-        )
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        fig2 = px.bar(
-            hotel_metrics, 
-            x='Hotel', 
-            y='Financial Impact',
-            title='Financial Contribution Distribution',
-            color_discrete_sequence=['#10B981'],
-            template='plotly_white'
-        )
-        fig2.update_layout(
-            height=400,
-            title_x=0.5,
-            title_font_size=16,
-            xaxis_title="",
-            yaxis_title="Amount (£)",
-            showlegend=False,
-            plot_bgcolor='rgba(0,0,0,0)',
-            bargap=0.3
-        )
-        fig2.update_traces(
-            marker_line_color='#059669',
-            marker_line_width=1.5,
-            hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    st.markdown("### Combined Impact Analysis")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig3 = go.Figure()
-        fig3.add_trace(go.Bar(
-            name='Volunteer Hours',
-            x=hotel_metrics['Hotel'],
-            y=hotel_metrics['Volunteer Hours'],
-            yaxis='y',
-            marker_color='#3B82F6',
-            marker_line_color='#2563EB',
-            marker_line_width=1.5,
-            hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
-        ))
-        fig3.add_trace(go.Bar(
-            name='Financial Impact',
-            x=hotel_metrics['Hotel'],
-            y=hotel_metrics['Financial Impact'],
-            yaxis='y2',
-            marker_color='#10B981',
-            marker_line_color='#059669',
-            marker_line_width=1.5,
-            hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
-        ))
-        fig3.update_layout(
-            title='Combined Hotel Impact',
-            title_x=0.5,
-            title_font_size=16,
-            yaxis=dict(title='Volunteer Hours', side='left', showgrid=True, gridcolor='rgba(0,0,0,0.1)'),
-            yaxis2=dict(title='Financial Impact (£)', side='right', overlaying='y', showgrid=False),
-            height=400,
-            template='plotly_white',
-            bargap=0.3,
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-    
-    with col2:
-        if not sdg_metrics.empty:
-            st.plotly_chart(
-                create_sdg_treemap(sdg_metrics.set_index('SDG')),
-                use_container_width=True
-            )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 def add_custom_css():
     st.markdown("""
         <style>

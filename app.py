@@ -8,7 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # Page configuration
-st.set_page_config(page_title="ESG Impact Dashboard", layout="wide", page_icon = "🤝")
+st.set_page_config(page_title="4C Group Impact Dashboard", layout="wide", page_icon = "🤝")
 
 # SDG information and colors
 SDG_INFO = {
@@ -421,16 +421,16 @@ def show_dashboard(data):
             padding-left: 10px;
         }
         
-        .section-title::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 3px;
-            background: linear-gradient(180deg, #3B82F6, #8B5CF6);
-            border-radius: 3px;
-        }
+        # .section-title::before {
+        #     content: "";
+        #     position: absolute;
+        #     left: 0;
+        #     top: 0;
+        #     height: 100%;
+        #     width: 3px;
+        #     background: linear-gradient(180deg, #3B82F6, #8B5CF6);
+        #     border-radius: 3px;
+        # }
         
         /* Charity cards grid with reduced spacing */
         .charity-grid {

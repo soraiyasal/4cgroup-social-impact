@@ -673,33 +673,60 @@ def show_dashboard(data):
         </style>
     """, unsafe_allow_html=True)
     
-    # Time period selector
+    # Updated time period selector
     st.markdown('<div class="period-selector">', unsafe_allow_html=True)
     view_type = st.radio(
         "",
-        ["Latest Month", "Financial YTD"],
+        ["Financial YTD", "Last Month", "Last Financial Year"],
         horizontal=True,
         label_visibility="collapsed"
     )
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
+    # Get current date and handle filtering based on selected period
+    current_date = datetime.now()
+
     # Filter data based on selected period
-    if view_type == "Latest Month":
+    if view_type == "Last Month":
+        # Calculate last month
+        if current_date.month == 1:  # January
+            last_month = 12
+            last_month_year = current_date.year - 1
+        else:
+            last_month = current_date.month - 1
+            last_month_year = current_date.year
+        
         filtered_data = data[
-            (data['Activity Date'].dt.month == latest_date.month) & 
-            (data['Activity Date'].dt.year == latest_date.year)
+            (data['Activity Date'].dt.month == last_month) & 
+            (data['Activity Date'].dt.year == last_month_year)
         ]
-        period_text = latest_date.strftime("%B %Y")
-    else:
-        # Calculate financial year
-        if latest_date.month < 4:  # Jan-Mar
-            fy_start = datetime(latest_date.year - 1, 4, 1)
-            fy_end = datetime(latest_date.year, 3, 31)
-            fy_text = f"FY{latest_date.year-1}/{latest_date.year}"
+        period_text = datetime(last_month_year, last_month, 1).strftime("%B %Y")
+    elif view_type == "Financial YTD":
+        # Calculate financial year to date
+        if current_date.month < 4:  # Jan-Mar
+            fy_start = datetime(current_date.year - 1, 4, 1)
+            fy_end = current_date
+            fy_text = f"FY{current_date.year-1}/{current_date.year}"
         else:  # Apr-Dec
-            fy_start = datetime(latest_date.year, 4, 1)
-            fy_end = datetime(latest_date.year + 1, 3, 31)
-            fy_text = f"FY{latest_date.year}/{latest_date.year+1}"
+            fy_start = datetime(current_date.year, 4, 1)
+            fy_end = current_date
+            fy_text = f"FY{current_date.year}/{current_date.year+1}"
+        
+        filtered_data = data[
+            (data['Activity Date'] >= fy_start) & 
+            (data['Activity Date'] <= fy_end)
+        ]
+        period_text = f"{fy_text} to date (Apr-{current_date.strftime('%b')})"
+    else:  # Last Financial Year
+        # Calculate last financial year
+        if current_date.month < 4:  # Jan-Mar
+            fy_start = datetime(current_date.year - 2, 4, 1)
+            fy_end = datetime(current_date.year - 1, 3, 31)
+            fy_text = f"FY{current_date.year-2}/{current_date.year-1}"
+        else:  # Apr-Dec
+            fy_start = datetime(current_date.year - 1, 4, 1)
+            fy_end = datetime(current_date.year, 3, 31)
+            fy_text = f"FY{current_date.year-1}/{current_date.year}"
         
         filtered_data = data[
             (data['Activity Date'] >= fy_start) & 

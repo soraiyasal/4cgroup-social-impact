@@ -183,8 +183,11 @@ def reshape_survey_data(df):
         # Convert dates
         reshaped_df['Activity Date'] = pd.to_datetime(reshaped_df['Activity Date'], format='%d/%m/%Y', errors='coerce')
         
-        # Convert numeric fields
+        # Convert numeric fields - MODIFIED THIS PART
         reshaped_df['Volunteer Hours'] = pd.to_numeric(reshaped_df['Volunteer Hours'], errors='coerce').fillna(0)
+        
+        # Clean financial impact by removing commas before conversion
+        reshaped_df['Financial Impact'] = reshaped_df['Financial Impact'].astype(str).str.replace(',', '', regex=True)
         reshaped_df['Financial Impact'] = pd.to_numeric(reshaped_df['Financial Impact'], errors='coerce').fillna(0)
         
         # Sort by date

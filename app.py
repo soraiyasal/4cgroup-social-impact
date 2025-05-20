@@ -7,6 +7,9 @@ import numpy as np
 import gspread
 from google.oauth2.service_account import Credentials
 
+import streamlit.components.v1 as components  # Import components module properly
+
+# Add Google Analytics tracking code
 def add_google_analytics():
     """Add Google Analytics tracking code to the Streamlit app."""
     GA_ID = "G-QB4ELSTWSX"  # Your Google Analytics ID
@@ -24,10 +27,12 @@ def add_google_analytics():
     """
     
     # Inject the script via HTML component with height=0
-    html(analytics_js, height=0)
+    components.html(analytics_js, height=0)
 
 # Page configuration
 st.set_page_config(page_title="4C Group Impact Dashboard", layout="wide", page_icon = "🤝")
+
+# Add Google Analytics
 add_google_analytics()
 
 

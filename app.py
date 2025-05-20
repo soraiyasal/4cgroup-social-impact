@@ -7,8 +7,29 @@ import numpy as np
 import gspread
 from google.oauth2.service_account import Credentials
 
+def add_google_analytics():
+    """Add Google Analytics tracking code to the Streamlit app."""
+    GA_ID = "G-QB4ELSTWSX"  # Your Google Analytics ID
+    
+    # Define the Google Analytics code with your tracking ID
+    analytics_js = f"""
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}};
+      gtag('js', new Date());
+      gtag('config', '{GA_ID}');
+    </script>
+    """
+    
+    # Inject the script via HTML component with height=0
+    html(analytics_js, height=0)
+
 # Page configuration
 st.set_page_config(page_title="4C Group Impact Dashboard", layout="wide", page_icon = "🤝")
+add_google_analytics()
+
 
 # SDG information and colors
 SDG_INFO = {

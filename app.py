@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -545,6 +546,7 @@ def show_overview_dashboard(data):
     
     with col1:
         time_periods = {
+            "Financial Year to Date": {"name": "Financial YTD", "description": f"From Apr 1 to present"},
             "Current Year to Date": {"name": "Current YTD", "description": f"From Jan 1, {current_date.year} to present"},
             "Last 6 Months": {"name": "Last 6 Months", "description": "Most recent 6-month period"},
             "Last 12 Months": {"name": "Last 12 Months", "description": "Full year rolling period"},
@@ -556,7 +558,15 @@ def show_overview_dashboard(data):
         period_info = time_periods[selected_period]
     
     # Filter data based on selected period
-    if selected_period == "Current Year to Date":
+    if selected_period == "Financial Year to Date":
+        # Financial year starts in April
+        if current_date.month < 4:  # Jan-Mar
+            fy_start = datetime(current_date.year - 1, 4, 1)
+        else:  # Apr-Dec
+            fy_start = datetime(current_date.year, 4, 1)
+        filtered_data = data[data['Activity Date'] >= fy_start]
+        
+    elif selected_period == "Current Year to Date":
         year_start = datetime(current_date.year, 1, 1)
         filtered_data = data[data['Activity Date'] >= year_start]
         
@@ -584,39 +594,32 @@ def show_overview_dashboard(data):
     total_activities = len(filtered_data)
     unique_charities = filtered_data['Organization'].nunique()
     
-    # Display metrics in an engaging, modern layout
-    st.markdown("""
-        <div class="metrics-container">
-            <div class="metric-card" style="border-top: 4px solid #3B82F6;">
-                <div class="metric-title">VOLUNTEER HOURS</div>
-                <div class="metric-value" style="color: #3B82F6;">{:,}</div>
-                <div style="font-size: 13px; color: #64748b;">Hours contributed</div>
-            </div>
-            
-            <div class="metric-card" style="border-top: 4px solid #10B981;">
-                <div class="metric-title">FINANCIAL IMPACT</div>
-                <div class="metric-value" style="color: #10B981;">£{:,}</div>
-                <div style="font-size: 13px; color: #64748b;">Total contribution</div>
-            </div>
-            
-            <div class="metric-card" style="border-top: 4px solid #F59E0B;">
-                <div class="metric-title">ACTIVITIES</div>
-                <div class="metric-value" style="color: #F59E0B;">{:,}</div>
-                <div style="font-size: 13px; color: #64748b;">Community engagements</div>
-            </div>
-            
-            <div class="metric-card" style="border-top: 4px solid #8B5CF6;">
-                <div class="metric-title">CHARITY PARTNERS</div>
-                <div class="metric-value" style="color: #8B5CF6;">{:,}</div>
-                <div style="font-size: 13px; color: #64748b;">Organizations supported</div>
-            </div>
-        </div>
-    """.format(
-        int(total_volunteer_hours),
-        int(total_financial_impact),
-        total_activities,
-        unique_charities
-    ), unsafe_allow_html=True)
+    # Display metrics in an engaging, modern layout with st.columns instead of HTML
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(
+            "VOLUNTEER HOURS",
+            f"{int(total_volunteer_hours):,}",
+            help="Total volunteer hours contributed"
+        )
+    with col2:
+        st.metric(
+            "FINANCIAL IMPACT",
+            f"£{int(total_financial_impact):,}",
+            help="Total financial contribution value"
+        )
+    with col3:
+        st.metric(
+            "ACTIVITIES",
+            f"{int(total_activities):,}",
+            help="Number of community engagement activities"
+        )
+    with col4:
+        st.metric(
+            "CHARITY PARTNERS",
+            f"{int(unique_charities):,}",
+            help="Number of organizations supported"
+        )
     
     # Instagram feed section - prominent placement
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)

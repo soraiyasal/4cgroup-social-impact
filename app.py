@@ -6,6 +6,13 @@ from datetime import datetime
 import numpy as np
 import gspread
 from google.oauth2.service_account import Credentials
+import instaloader
+import io
+import tempfile
+from PIL import Image
+import os
+
+
 
 import streamlit.components.v1 as components  # Import components module properly
 
@@ -78,8 +85,61 @@ SDG_INFO = {
         'number': 13,
         'description': 'Environmental initiatives, carbon reduction, and climate change awareness.'
     }
-}
-
+}# Add this function to your existing code
+def fetch_instagram_posts(username="4cgroup_hq", limit=6):
+    """Fetch recent Instagram posts for 4C Group HQ"""
+    try:
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp()
+        
+        # Initialize instaloader
+        L = instaloader.Instaloader(dirname_pattern=temp_dir, 
+                                   download_videos=True,
+                                   download_video_thumbnails=True,
+                                   download_geotags=False,
+                                   download_comments=False,
+                                   save_metadata=True)
+        
+        # Get profile and posts
+        profile = instaloader.Profile.from_username(L.context, username)
+        posts = []
+        
+        # Get recent posts
+        for i, post in enumerate(profile.get_posts()):
+            if i >= limit:
+                break
+                
+            # Post info dictionary
+            post_info = {
+                'is_video': post.is_video,
+                'caption': post.caption if post.caption else "",
+                'likes': post.likes,
+                'date': post.date_local,
+                'url': f"https://www.instagram.com/p/{post.shortcode}/",
+                'shortcode': post.shortcode
+            }
+            
+            # Download the post image/video
+            L.download_post(post, target=username)
+            
+            # Find the downloaded media file
+            post_date_str = post.date_utc.strftime('%Y-%m-%d')
+            media_files = [f for f in os.listdir(temp_dir) if f.startswith(f"{post_date_str}") and (f.endswith(".jpg") or f.endswith(".mp4"))]
+            
+            if media_files:
+                # Get the first media file (usually the main image/video)
+                for file in media_files:
+                    if file.endswith('.jpg'):
+                        image_path = os.path.join(temp_dir, file)
+                        with open(image_path, 'rb') as img_file:
+                            post_info['image_data'] = img_file.read()
+                        break
+                posts.append(post_info)
+        
+        return posts
+    
+    except Exception as e:
+        return []
 def connect_to_google_sheets():
     """Setup Google Sheets connection"""
     try:
@@ -1145,6 +1205,130 @@ def add_custom_css():
         </style>
     """, unsafe_allow_html=True)
 
+def show_instagram_feed():
+    """Display the Instagram feed for 4C Group"""
+    # Add a loading spinner while fetching posts
+    with st.spinner('Fetching latest Instagram posts...'):
+        # Cache the results for 1 hour
+        @st.cache_data(ttl=3600)
+        def get_instagram_feed():
+            return fetch_instagram_posts(username="4cgroup_hq", limit=6)
+        
+        posts = get_instagram_feed()
+    
+    if posts:
+        # Add some styling for the Instagram feed
+        st.markdown("""
+            <style>
+            .instagram-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 16px;
+                margin-top: 20px;
+            }
+            .instagram-card {
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                overflow: hidden;
+                transition: transform 0.3s ease;
+            }
+            .instagram-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            }
+            .instagram-content {
+                padding: 12px;
+            }
+            .instagram-caption {
+                font-size: 14px;
+                line-height: 1.4;
+                margin: 10px 0;
+                color: #1e293b;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+            }
+            .instagram-meta {
+                display: flex;
+                justify-content: space-between;
+                color: #6B7280;
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+            .instagram-link {
+                display: inline-block;
+                padding: 6px 12px;
+                background-color: #E1306C;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                font-size: 12px;
+                transition: background-color 0.2s;
+            }
+            .instagram-link:hover {
+                background-color: #c13584;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Start grid container
+        st.markdown('<div class="instagram-grid">', unsafe_allow_html=True)
+        
+        # Display posts in grid
+        for post in posts:
+            if 'image_data' in post:
+                # Create Instagram card HTML
+                st.markdown(f"""
+                    <div class="instagram-card">
+                        <img src="data:image/jpeg;base64,{encode_image(post['image_data'])}" width="100%" alt="Instagram post" />
+                        <div class="instagram-content">
+                            <div class="instagram-meta">
+                                <span>📅 {post['date'].strftime('%d %b %Y')}</span>
+                                <span>❤️ {post['likes']}</span>
+                            </div>
+                            <div class="instagram-caption">
+                                {post['caption'][:100] + "..." if len(post['caption']) > 100 else post['caption']}
+                            </div>
+                            <a href="https://www.instagram.com/p/{post['shortcode']}/" class="instagram-link" target="_blank">
+                                View on Instagram
+                            </a>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        # End grid container
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Add link to full Instagram profile
+        st.markdown("""
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="https://www.instagram.com/4cgroup_hq/" target="_blank" style="text-decoration: none; color: #4B5563; font-size: 14px;">
+                    View all posts on Instagram
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.error("Unable to fetch Instagram posts. Please try again later.")
+        
+        # Add a fallback iframe option
+        st.markdown("""
+            <iframe src="https://www.instagram.com/4cgroup_hq/embed" 
+                width="100%" 
+                height="450" 
+                frameborder="0" 
+                scrolling="no" 
+                allowtransparency="true">
+            </iframe>
+        """, unsafe_allow_html=True)
+
+# Helper function to encode image data as base64
+def encode_image(image_data):
+    import base64
+    return base64.b64encode(image_data).decode('utf-8')
+
 def main():
     st.title("ESG Impact Dashboard")
     
@@ -1158,6 +1342,12 @@ def main():
                 processed_data = reshape_survey_data(data)
                 if not processed_data.empty:
                     show_dashboard(processed_data)
+                    
+                    # Add Instagram feed at the bottom of the Dashboard tab
+                    st.markdown('<div class="dashboard-section" style="margin-top: 30px;">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-header"><h2 class="section-title">4C Group Instagram Feed</h2></div>', unsafe_allow_html=True)
+                    show_instagram_feed()
+                    st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.error("Failed to process data")
             else:

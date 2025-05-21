@@ -86,6 +86,9 @@ SDG_INFO = {
         'description': 'Environmental initiatives, carbon reduction, and climate change awareness.'
     }
 }# Add this function to your existing code
+
+
+# Instagram feed functionality
 def fetch_instagram_posts(username="4cgroup_hq", limit=6):
     """Fetch recent Instagram posts for 4C Group HQ"""
     try:
@@ -139,7 +142,9 @@ def fetch_instagram_posts(username="4cgroup_hq", limit=6):
         return posts
     
     except Exception as e:
+        st.error(f"Error fetching Instagram posts: {str(e)}")
         return []
+
 def connect_to_google_sheets():
     """Setup Google Sheets connection"""
     try:
@@ -1341,13 +1346,214 @@ def main():
             if not data.empty:
                 processed_data = reshape_survey_data(data)
                 if not processed_data.empty:
-                    show_dashboard(processed_data)
+                    # Introduction with engaging header - more concise
+                    st.markdown("""
+                        <div class="dashboard-header" style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="font-size: 28px; margin-bottom: 4px; color: #1e293b;">Making an Impact Together</h1>
+                            <p style="color: #64748b; font-size: 16px; max-width: 700px; margin: 0 auto 10px auto;">
+                                Tracking our journey towards a sustainable future through community engagement.
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
-                    # Add Instagram feed at the bottom of the Dashboard tab
-                    st.markdown('<div class="dashboard-section" style="margin-top: 30px;">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-header"><h2 class="section-title">4C Group Instagram Feed</h2></div>', unsafe_allow_html=True)
+                    # Calculate key metrics for the top panel
+                    total_volunteer_hours = pd.to_numeric(processed_data['Volunteer Hours'], errors='coerce').sum()
+                    total_financial_impact = pd.to_numeric(processed_data['Financial Impact'], errors='coerce').sum()
+                    total_activities = len(processed_data)
+                    
+                    # Display key metrics in a more concise format
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("⏱️ Volunteer Hours", f"{int(total_volunteer_hours):,}")
+                    with col2:
+                        st.metric("💰 Financial Impact", f"£{int(total_financial_impact):,}")
+                    with col3:
+                        st.metric("📊 Activities", f"{total_activities:,}")
+                    
+                    # Add Instagram feed in a more prominent position after the metrics
+                    st.markdown('<div class="dashboard-section" style="margin-top: 25px; margin-bottom: 30px;">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">Latest From Our Instagram</h2></div>', unsafe_allow_html=True)
                     show_instagram_feed()
                     st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Continue with the rest of the dashboard content
+                    # SDG section
+                    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">SDG Impact</h2></div>', unsafe_allow_html=True)
+                    
+                    # Process SDG data
+                    sdg_metrics = processed_data.groupby('SDG').size().reset_index(name='Count')
+                    
+                    if not sdg_metrics.empty:
+                        # Sort by count
+                        sdg_metrics = sdg_metrics.sort_values('Count', ascending=False)
+                        
+                        # Get max count for percentage calculation
+                        max_count = sdg_metrics['Count'].max()
+                        
+                        # Create exciting SDG display
+                        st.markdown('<div class="sdg-progress-container" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">', unsafe_allow_html=True)
+                        
+                        for idx, sdg in sdg_metrics.iterrows():
+                            sdg_name = sdg['SDG']
+                            sdg_count = sdg['Count']
+                            
+                            # Get color and info from SDG_INFO if available, or use default
+                            if sdg_name in SDG_INFO:
+                                color = SDG_INFO[sdg_name]['color']
+                                number = SDG_INFO[sdg_name]['number']
+                                description = SDG_INFO[sdg_name]['description']
+                            else:
+                                color = '#777777'
+                                number = ""
+                                description = ""
+                            
+                            # Calculate percentage of the max for progress bar
+                            percentage = (sdg_count / max_count) * 100
+                            
+                            # Create status badge based on percentage
+                            if percentage >= 75:
+                                badge_color = "#22c55e"
+                                badge_text = "Strong"
+                            elif percentage >= 50:
+                                badge_color = "#eab308"
+                                badge_text = "Growing"
+                            else:
+                                badge_color = "#3b82f6"
+                                badge_text = "Building"
+                            
+                            # Create exciting animated SDG card
+                            st.markdown(f"""
+                                <div style="border-left: 6px solid {color}; flex: 1; min-width: 200px; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); padding: 12px; position: relative; transition: all 0.3s ease; overflow: hidden;">
+                                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                                        <div style="position: relative; margin-right: 12px;">
+                                            <div style="width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; background-color: {color}; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);">
+                                                {number}
+                                            </div>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 3px;">
+                                                {sdg_name}
+                                            </div>
+                                            <div style="font-size: 12px; color: #64748b; line-height: 1.4;">
+                                                {description[:80]}...
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                                        <div style="font-size: 24px; font-weight: 700; color: {color};">
+                                            {sdg_count}
+                                        </div>
+                                        <div>
+                                            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; background-color: {badge_color}20; color: {badge_color};">
+                                                {badge_text}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style="height: 6px; background-color: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden;">
+                                        <div style="height: 100%; border-radius: 3px; width: {percentage}%; background-color: {color}; transition: width 1.5s ease;">
+                                        </div>
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Hotel contributions section (if you want to keep it)
+                    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">Hotel Contributions</h2></div>', unsafe_allow_html=True)
+                    
+                    # Process hotel data
+                    hotel_metrics = processed_data.groupby('Hotel').agg({
+                        'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+                        'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+                        'Activity Date': 'count'
+                    }).reset_index().rename(columns={'Activity Date': 'Activities'})
+                    
+                    # Sort by total impact
+                    hotel_metrics['Total Impact'] = hotel_metrics['Volunteer Hours'] + (hotel_metrics['Financial Impact'] / 100)
+                    hotel_metrics = hotel_metrics.sort_values('Total Impact', ascending=False)
+                    
+                    # Create hotel impact chart
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Filter to only show hotels with volunteer hours > 0
+                        volunteer_hotels = hotel_metrics[hotel_metrics['Volunteer Hours'] > 0].copy()
+                        
+                        if not volunteer_hotels.empty:
+                            # Sort by volunteer hours
+                            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False)
+                            
+                            fig1 = px.bar(
+                                volunteer_hotels, 
+                                x='Hotel', 
+                                y='Volunteer Hours',
+                                title=f'Volunteer Hours by Hotel ({len(volunteer_hotels)} contributing)',
+                                color_discrete_sequence=['#3B82F6'],
+                                template='plotly_white'
+                            )
+                            fig1.update_layout(
+                                height=240,
+                                margin=dict(l=20, r=20, t=30, b=40),
+                                title_font_size=14,
+                                title_x=0.5,
+                                xaxis_title="",
+                                yaxis_title="Hours",
+                                showlegend=False,
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                bargap=0.3
+                            )
+                            fig1.update_traces(
+                                marker_line_color='#2563EB',
+                                marker_line_width=1,
+                                hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
+                            )
+                            st.plotly_chart(fig1, use_container_width=True)
+                        else:
+                            st.info("No volunteer hours recorded in this period.")
+                    
+                    with col2:
+                        # Filter to only show hotels with financial impact > 0
+                        financial_hotels = hotel_metrics[hotel_metrics['Financial Impact'] > 0].copy()
+                        
+                        if not financial_hotels.empty:
+                            # Sort by financial impact
+                            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False)
+                            
+                            fig2 = px.bar(
+                                financial_hotels, 
+                                x='Hotel', 
+                                y='Financial Impact',
+                                title=f'Financial Impact by Hotel ({len(financial_hotels)} contributing)',
+                                color_discrete_sequence=['#10B981'],
+                                template='plotly_white'
+                            )
+                            fig2.update_layout(
+                                height=240,
+                                margin=dict(l=20, r=20, t=30, b=40),
+                                title_font_size=14,
+                                title_x=0.5,
+                                xaxis_title="",
+                                yaxis_title="Amount (£)",
+                                showlegend=False,
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                bargap=0.3
+                            )
+                            fig2.update_traces(
+                                marker_line_color='#059669',
+                                marker_line_width=1,
+                                hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
+                            )
+                            st.plotly_chart(fig2, use_container_width=True)
+                        else:
+                            st.info("No financial contributions recorded in this period.")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    show_dashboard(processed_data)
                 else:
                     st.error("Failed to process data")
             else:

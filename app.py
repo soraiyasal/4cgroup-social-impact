@@ -6,15 +6,10 @@ from datetime import datetime
 import numpy as np
 import gspread
 from google.oauth2.service_account import Credentials
-import instaloader
-import io
-import tempfile
-from PIL import Image
-import os
+import streamlit.components.v1 as components
 
-
-
-import streamlit.components.v1 as components  # Import components module properly
+# Page configuration
+st.set_page_config(page_title="4C Group Impact Dashboard", layout="wide", page_icon="🤝")
 
 # Add Google Analytics tracking code
 def add_google_analytics():
@@ -36,12 +31,8 @@ def add_google_analytics():
     # Inject the script via HTML component with height=0
     components.html(analytics_js, height=0)
 
-# Page configuration
-st.set_page_config(page_title="4C Group Impact Dashboard", layout="wide", page_icon = "🤝")
-
 # Add Google Analytics
 add_google_analytics()
-
 
 # SDG information and colors
 SDG_INFO = {
@@ -85,65 +76,7 @@ SDG_INFO = {
         'number': 13,
         'description': 'Environmental initiatives, carbon reduction, and climate change awareness.'
     }
-}# Add this function to your existing code
-
-
-# Instagram feed functionality
-def fetch_instagram_posts(username="4cgroup_hq", limit=6):
-    """Fetch recent Instagram posts for 4C Group HQ"""
-    try:
-        # Create a temporary directory
-        temp_dir = tempfile.mkdtemp()
-        
-        # Initialize instaloader
-        L = instaloader.Instaloader(dirname_pattern=temp_dir, 
-                                   download_videos=True,
-                                   download_video_thumbnails=True,
-                                   download_geotags=False,
-                                   download_comments=False,
-                                   save_metadata=True)
-        
-        # Get profile and posts
-        profile = instaloader.Profile.from_username(L.context, username)
-        posts = []
-        
-        # Get recent posts
-        for i, post in enumerate(profile.get_posts()):
-            if i >= limit:
-                break
-                
-            # Post info dictionary
-            post_info = {
-                'is_video': post.is_video,
-                'caption': post.caption if post.caption else "",
-                'likes': post.likes,
-                'date': post.date_local,
-                'url': f"https://www.instagram.com/p/{post.shortcode}/",
-                'shortcode': post.shortcode
-            }
-            
-            # Download the post image/video
-            L.download_post(post, target=username)
-            
-            # Find the downloaded media file
-            post_date_str = post.date_utc.strftime('%Y-%m-%d')
-            media_files = [f for f in os.listdir(temp_dir) if f.startswith(f"{post_date_str}") and (f.endswith(".jpg") or f.endswith(".mp4"))]
-            
-            if media_files:
-                # Get the first media file (usually the main image/video)
-                for file in media_files:
-                    if file.endswith('.jpg'):
-                        image_path = os.path.join(temp_dir, file)
-                        with open(image_path, 'rb') as img_file:
-                            post_info['image_data'] = img_file.read()
-                        break
-                posts.append(post_info)
-        
-        return posts
-    
-    except Exception as e:
-        st.error(f"Error fetching Instagram posts: {str(e)}")
-        return []
+}
 
 def connect_to_google_sheets():
     """Setup Google Sheets connection"""
@@ -183,20 +116,13 @@ def fetch_sheet_data():
         if not client:
             # st.error("Failed to connect to Google Sheets")
             return pd.DataFrame()
-        # st.success("Connected to Google Sheets")
         
         try:
             # Debug spreadsheet access
             sheet = client.open_by_key(st.secrets["sheet_id"])
-            # st.success("Successfully opened spreadsheet")
-            
-            # List all available worksheets
-            worksheets = sheet.worksheets()
-            worksheet_names = [ws.title for ws in worksheets]
             
             # Get the first worksheet (assumes data is in first tab)
             worksheet = sheet.get_worksheet(0)
-            # st.success(f"Successfully found worksheet: {worksheet.title}")
             
             # Get all records with row count
             try:
@@ -208,7 +134,6 @@ def fetch_sheet_data():
                 # Convert to DataFrame
                 df = pd.DataFrame(data, columns=headers)
                 if not df.empty:
-                    # st.success(f"Successfully fetched {len(df)} rows of data")
                     return df
                 else:
                     st.warning("Sheet is empty or data format is incorrect")
@@ -225,6 +150,29 @@ def fetch_sheet_data():
         # st.error(f"Error fetching data: {str(e)}")
         # st.write("Error type:", type(e).__name__)
         return pd.DataFrame()
+
+def clean_sdg_name(sdg):
+    """Standardize SDG names based on Google Form options"""
+    if pd.isna(sdg):
+        return None
+    
+    # Convert to lowercase and strip extra spaces
+    sdg = str(sdg).lower().strip()
+    
+    # Map Google Form SDG names to SDG_INFO keys
+    sdg_mapping = {
+        'good health and well-being': 'Good Health and Well-being',
+        'decent work and economic growth': 'Decent Work and Economic Growth',
+        'reduced inequalities': 'Reduced Inequalities',
+        'quality education': 'Quality Education',
+        'gender equality': 'Gender Equality',
+        'sustainable cities and communities': 'Sustainable Cities and Communities',
+        'climate action': 'Climate Action',
+        'responsible consumption and production': 'Responsible Consumption and Production'
+    }
+    
+    # Return the mapped SDG name, or the original SDG if no match is found
+    return sdg_mapping.get(sdg, sdg.title())
 
 def reshape_survey_data(df):
     """Reshape survey data with multiple activities per row into long format"""
@@ -290,77 +238,6 @@ def reshape_survey_data(df):
         st.error(f"Error processing data: {str(e)}")
         return pd.DataFrame()
 
-def clean_sdg_name(sdg):
-    """Standardize SDG names based on Google Form options"""
-    if pd.isna(sdg):
-        return None
-    
-    # Convert to lowercase and strip extra spaces
-    sdg = str(sdg).lower().strip()
-    
-    # Map Google Form SDG names to SDG_INFO keys
-    sdg_mapping = {
-        'good health and well-being': 'Good Health and Well-being',
-        'decent work and economic growth': 'Decent Work and Economic Growth',
-        'reduced inequalities': 'Reduced Inequalities',
-        'quality education': 'Quality Education',
-        'gender equality': 'Gender Equality',
-        'sustainable cities and communities': 'Sustainable Cities and Communities',
-        'climate action': 'Climate Action',
-        'responsible consumption and production': 'Responsible Consumption and Production'
-    }
-    
-    # Return the mapped SDG name, or the original SDG if no match is found
-    return sdg_mapping.get(sdg, sdg.title())
-
-def clean_sdg_name(sdg):
-    """Standardize SDG names based on Google Form options"""
-    if pd.isna(sdg):
-        return None
-    
-    # Convert to lowercase and strip extra spaces
-    sdg = str(sdg).lower().strip()
-    
-    # Map Google Form SDG names to SDG_INFO keys
-    sdg_mapping = {
-        'good health and well-being': 'Good Health and Well-being',
-        'decent work and economic growth': 'Decent Work and Economic Growth',
-        'reduced inequalities': 'Reduced Inequalities',
-        'quality education': 'Quality Education',
-        'gender equality': 'Gender Equality',
-        'sustainable cities and communities': 'Sustainable Cities and Communities',
-        'climate action': 'Climate Action',
-        'responsible consumption and production': 'Responsible Consumption and Production'
-    }
-    
-    # Return the mapped SDG name, or the original SDG if no match is found
-    return sdg_mapping.get(sdg, sdg.title())
-
-def create_sdg_treemap(data):
-    """Create a treemap visualization for SDG activities"""
-    fig = px.treemap(
-        data.reset_index(),
-        path=['SDG'],
-        values='Count',
-        color='SDG',
-        color_discrete_map={sdg: SDG_INFO[sdg]['color'] for sdg in data.index if sdg in SDG_INFO},
-        title='SDG Activity Distribution'
-    )
-    
-    fig.update_traces(
-        textinfo="label+value",
-        hovertemplate="<b>%{label}</b><br>Activities: %{value}<extra></extra>"
-    )
-    
-    fig.update_layout(
-        height=400,
-        margin=dict(l=20, r=20, t=40, b=20),
-        title_x=0.5,
-        title_font_size=16
-    )
-    
-    return fig
-
 def show_sdg_info():
     """Display SDG information page"""
     st.header("Our Focus SDGs")
@@ -386,500 +263,428 @@ def show_sdg_info():
             with col2:
                 st.write(info['description'])
 
-def show_metrics(volunteer_hours, financial_impact, activities):
-    st.markdown("""
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-            <div class="metric-container">
-                <div style="color: #3B82F6;">
-                    <h3 class="metric-title">Volunteer Hours</h3>
-                    <p class="metric-value">{:,.0f}</p>
-                </div>
-            </div>
-            <div class="metric-container">
-                <div style="color: #10B981;">
-                    <h3 class="metric-title">Financial Impact</h3>
-                    <p class="metric-value">£{:,.0f}</p>
-                </div>
-            </div>
-            <div class="metric-container">
-                <div style="color: #8B5CF6;">
-                    <h3 class="metric-title">Activities</h3>
-                    <p class="metric-value">{:,.0f}</p>
-                </div>
-            </div>
-        </div>
-    """.format(volunteer_hours, financial_impact, activities), unsafe_allow_html=True)
-
-def create_responsive_charts(hotel_metrics, sdg_metrics):
-    # Container for charts
-    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+def show_instagram_feed():
+    """Display the Instagram feed for 4C Group with reliable iframe method"""
     
-    # Responsive columns
-    use_wide_layout = st.checkbox("Wide layout", value=True)
-    
-    if use_wide_layout:
-        col1, col2 = st.columns(2)
-    else:
-        col1, col2 = st.columns([1, 1])
-    
-    # Update chart layouts for better mobile responsiveness
-    chart_layout = {
-        'height': 400,
-        'margin': dict(l=20, r=20, t=40, b=20),
-        'paper_bgcolor': 'rgba(0,0,0,0)',
-        'plot_bgcolor': 'rgba(0,0,0,0)',
-        'font': {'size': 12},
-        'autosize': True
-    }
-    
-    # Add media queries for mobile
-    chart_layout.update({
-        'xaxis': {'tickangle': -45} if len(hotel_metrics) > 5 else {},
-        'legend': {
-            'orientation': "h",
-            'yanchor': "bottom",
-            'y': 1.02,
-            'xanchor': "right",
-            'x': 1
-        }
-    })
-
-def show_dashboard(data):
-    """Display a streamlined, engaging dashboard with all KPIs in one row"""
-    # Find the latest month in the data
-    latest_date = data['Activity Date'].max()
-    
-    # Custom CSS for modern, engaging design with reduced spacing
     st.markdown("""
         <style>
-        /* Clean overall aesthetic with reduced spacing */
-        .main {
-            padding: 0.5rem;
-            background-color: #f8fafc;
-        }
-        
-        /* Inspiring header with reduced margins */
-        .dashboard-header {
-            margin-bottom: 12px;
-            text-align: center;
-            padding-bottom: 10px;
+        .instagram-container {
             position: relative;
-        }
-        
-        .dashboard-header h1 {
-            font-size: 24px;
-            margin-bottom: 4px;
-            color: #1e293b;
-        }
-        
-        .dashboard-header p {
-            color: #64748b;
-            font-size: 14px;
-            max-width: 700px;
+            width: 100%;
             margin: 0 auto;
-        }
-        
-        .dashboard-header::after {
-            content: "";
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 70px;
-            height: 2px;
-            background: linear-gradient(90deg, #3B82F6, #8B5CF6);
-            border-radius: 2px;
-        }
-        
-        /* Dashboard sections with reduced padding */
-        .dashboard-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1e293b;
-            position: relative;
-            padding-left: 10px;
-        }
-        
-        # .section-title::before {
-        #     content: "";
-        #     position: absolute;
-        #     left: 0;
-        #     top: 0;
-        #     height: 100%;
-        #     width: 3px;
-        #     background: linear-gradient(180deg, #3B82F6, #8B5CF6);
-        #     border-radius: 3px;
-        # }
-        
-        /* Charity cards grid with reduced spacing */
-        .charity-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 10px;
-            margin-top: 12px;
-        }
-        
-        .charity-card {
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            padding: 12px;
-            transition: transform 0.2s;
-        }
-        
-        .charity-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.08);
-        }
-        
-        .charity-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .charity-logo {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            margin-right: 8px;
-            font-size: 14px;
-        }
-        
-        .charity-name {
-            font-weight: 600;
-            color: #1e293b;
-            font-size: 13px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .charity-stats {
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .charity-stat {
-            text-align: center;
-        }
-        
-        .charity-stat-value {
-            font-weight: 700;
-            font-size: 14px;
-            color: #334155;
-        }
-        
-        .charity-stat-label {
-            font-size: 11px;
-            color: #64748b;
-        }
-        
-        /* Period selector styling */
-        .period-selector {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-            padding: 2px;
-            z-index: 100;
-        }
-        
-        /* Achievement banner */
-        .achievement-banner {
-            background: linear-gradient(135deg, #4F46E5, #7C3AED);
-            border-radius: 8px;
-            padding: 15px;
-            color: white;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .achievement-message {
-            font-size: 14px;
-            font-weight: 500;
-        }
-        
-        .achievement-highlight {
-            font-weight: 700;
-            font-size: 16px;
-        }
-        
-        /* Exciting SDG Progress Bar Layout */
-        .sdg-progress-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        
-        .sdg-progress-item {
-            flex: 1;
-            min-width: 200px;
-            background: white;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            padding: 12px;
-            position: relative;
-            transition: all 0.3s ease;
             overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        
-        .sdg-progress-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        .sdg-progress-item::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 6px;
-            height: 100%;
-        }
-        
-        .sdg-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .sdg-icon-wrapper {
-            position: relative;
-            margin-right: 12px;
-        }
-        
-        .sdg-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-        
-        .sdg-icon-pulse {
+        .instagram-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-            opacity: 0;
+            height: 20px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0));
+            z-index: 10;
+            pointer-events: none;
         }
-        
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                opacity: 0.7;
-            }
-            70% {
-                transform: scale(1.5);
-                opacity: 0;
-            }
-            100% {
-                transform: scale(1.5);
-                opacity: 0;
-            }
-        }
-        
-        .sdg-info {
-            flex: 1;
-        }
-        
-        .sdg-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 3px;
-        }
-        
-        .sdg-description {
-            font-size: 12px;
-            color: #64748b;
-            line-height: 1.4;
-        }
-        
-        .sdg-stats {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 8px;
-        }
-        
-        .sdg-count {
-            font-size: 24px;
-            font-weight: 700;
-        }
-        
-        .sdg-progress-bar {
-            height: 6px;
-            background-color: #e2e8f0;
-            border-radius: 3px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-        
-        .sdg-progress-value {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 1.5s ease;
-        }
-        
-        .sdg-badge {
+        .instagram-button {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #E1306C;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 25px;
+            box-shadow: 0 4px 10px rgba(225, 48, 108, 0.3);
             font-weight: 500;
-            margin-left: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+        }
+        .instagram-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(225, 48, 108, 0.4);
+        }
+        </style>
+        
+        <div class="instagram-container">
+            <div class="instagram-overlay"></div>
+            <iframe src="https://www.instagram.com/4cgroup_hq/embed" 
+                width="100%" 
+                height="600" 
+                frameborder="0" 
+                scrolling="no" 
+                allowtransparency="true">
+            </iframe>
+        </div>
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="https://www.instagram.com/4cgroup_hq/" target="_blank" class="instagram-button">
+                Follow Us on Instagram
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
+
+def create_sdg_highlight_card(sdg_name, count, max_count):
+    """Create an attractive card for a highlighted SDG"""
+    if sdg_name in SDG_INFO:
+        color = SDG_INFO[sdg_name]['color']
+        number = SDG_INFO[sdg_name]['number']
+        description = SDG_INFO[sdg_name]['description']
+    else:
+        color = '#777777'
+        number = ""
+        description = ""
+    
+    # Calculate percentage of the max for progress bar
+    percentage = (count / max_count) * 100 if max_count > 0 else 0
+    
+    # Create status badge based on percentage
+    if percentage >= 75:
+        badge_color = "#22c55e"
+        badge_text = "Strong"
+    elif percentage >= 50:
+        badge_color = "#eab308"
+        badge_text = "Growing"
+    else:
+        badge_color = "#3b82f6"
+        badge_text = "Building"
+    
+    html = f"""
+    <div style="background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+                overflow: hidden; transition: all 0.3s ease; height: 100%; 
+                border-top: 5px solid {color};">
+        <div style="padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; border-radius: 50%; background-color: {color};
+                           display: flex; align-items: center; justify-content: center; 
+                           color: white; font-weight: bold; font-size: 24px; flex-shrink: 0;
+                           box-shadow: 0 5px 15px {color}60;">
+                    {number}
+                </div>
+                <div>
+                    <div style="font-weight: 700; font-size: 18px; color: #1e293b;">{sdg_name}</div>
+                    <div style="color: {color}; font-size: 24px; font-weight: 700;">{count}</div>
+                </div>
+            </div>
+            <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin-bottom: 15px;">
+                {description[:120]}...
+            </p>
+            <div style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                <div style="height: 100%; width: {percentage}%; background-color: {color}; 
+                            transition: width 1.5s ease;"></div>
+            </div>
+            <div style="text-align: right; margin-top: 8px;">
+                <span style="display: inline-block; padding: 4px 10px; border-radius: 20px; 
+                           font-size: 12px; font-weight: 500; background-color: {badge_color}20; 
+                           color: {badge_color};">
+                    {badge_text}
+                </span>
+            </div>
+        </div>
+    </div>
+    """
+    return html
+
+def show_overview_dashboard(data):
+    """Display an engaging dashboard with improved layout and visuals"""
+    
+    # Custom CSS for modern, engaging design
+    st.markdown("""
+        <style>
+        /* Modern aesthetic */
+        .main {
+            background-color: #f8fafc;
+        }
+        
+        /* Dashboard header styling */
+        .dashboard-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0;
+            text-align: center;
+        }
+        
+        .dashboard-subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-top: 5px;
+            text-align: center;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Metrics styling */
+        .metrics-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .metric-card {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-title {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        /* Section styling */
+        .dashboard-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .section-header {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-header::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(to bottom, #3B82F6, #8B5CF6);
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+        
+        /* Chart styling */
+        .chart-container {
+            background: transparent;
+        }
+        
+        /* Custom tab styling for dashboard */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            padding: 0 20px;
+            background-color: transparent;
+            border-radius: 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+        }
+        
+        .stTabs [data-baseweb="tab-highlight"] {
+            background-color: #3B82F6;
+            height: 3px;
+            bottom: 0;
+        }
+        
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            color: #3B82F6;
+            font-weight: 600;
+        }
+        
+        /* Make normal streamlit elements work better with the design */
+        div[data-testid="stMetric"] {
+            background-color: white;
+        }
+        
+        /* Responsive Grid Layout */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
         </style>
     """, unsafe_allow_html=True)
     
-    # Updated time period selector
-    st.markdown('<div class="period-selector">', unsafe_allow_html=True)
-    view_type = st.radio(
-        "",
-        ["Financial YTD", "Last Month", "Last Financial Year"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Get current date and handle filtering based on selected period
-    current_date = datetime.now()
-
-    # Filter data based on selected period
-    if view_type == "Last Month":
-        # Calculate last month
-        if current_date.month == 1:  # January
-            last_month = 12
-            last_month_year = current_date.year - 1
-        else:
-            last_month = current_date.month - 1
-            last_month_year = current_date.year
-        
-        filtered_data = data[
-            (data['Activity Date'].dt.month == last_month) & 
-            (data['Activity Date'].dt.year == last_month_year)
-        ]
-        period_text = datetime(last_month_year, last_month, 1).strftime("%B %Y")
-    elif view_type == "Financial YTD":
-        # Calculate financial year to date
-        if current_date.month < 4:  # Jan-Mar
-            fy_start = datetime(current_date.year - 1, 4, 1)
-            fy_end = current_date
-            fy_text = f"FY{current_date.year-1}/{current_date.year}"
-        else:  # Apr-Dec
-            fy_start = datetime(current_date.year, 4, 1)
-            fy_end = current_date
-            fy_text = f"FY{current_date.year}/{current_date.year+1}"
-        
-        filtered_data = data[
-            (data['Activity Date'] >= fy_start) & 
-            (data['Activity Date'] <= fy_end)
-        ]
-        period_text = f"{fy_text} to date (Apr-{current_date.strftime('%b')})"
-    else:  # Last Financial Year
-        # Calculate last financial year
-        if current_date.month < 4:  # Jan-Mar
-            fy_start = datetime(current_date.year - 2, 4, 1)
-            fy_end = datetime(current_date.year - 1, 3, 31)
-            fy_text = f"FY{current_date.year-2}/{current_date.year-1}"
-        else:  # Apr-Dec
-            fy_start = datetime(current_date.year - 1, 4, 1)
-            fy_end = datetime(current_date.year, 3, 31)
-            fy_text = f"FY{current_date.year-1}/{current_date.year}"
-        
-        filtered_data = data[
-            (data['Activity Date'] >= fy_start) & 
-            (data['Activity Date'] <= fy_end)
-        ]
-        period_text = f"{fy_text} (Apr-Mar)"
+    # Dashboard header with engaging headline
+    st.markdown('<h1 class="dashboard-title">Community Impact Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="dashboard-subtitle">Tracking our contributions to sustainable development and social responsibility across all 4C Group properties.</p>', unsafe_allow_html=True)
     
-    # Inspiring header
+    # Filter data by time period
+    current_date = datetime.now()
+    
+    # Create time period selector with more engaging design
     st.markdown("""
-        <div class="dashboard-header">
-            <h1>Making an Impact Together</h1>
-            <p>Tracking our journey towards a sustainable future through community engagement and support.</p>
-        </div>
+        <style>
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            background-color: white;
+            border-radius: 8px;
+            padding: 8px 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        </style>
     """, unsafe_allow_html=True)
     
-    # Calculate metrics
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        time_periods = {
+            "Current Year to Date": {"name": "Current YTD", "description": f"From Jan 1, {current_date.year} to present"},
+            "Last 6 Months": {"name": "Last 6 Months", "description": "Most recent 6-month period"},
+            "Last 12 Months": {"name": "Last 12 Months", "description": "Full year rolling period"},
+            "All Time": {"name": "All Time", "description": "Complete historical data"}
+        }
+        
+        period_options = list(time_periods.keys())
+        selected_period = st.selectbox("Select Time Period:", period_options, index=0)
+        period_info = time_periods[selected_period]
+    
+    # Filter data based on selected period
+    if selected_period == "Current Year to Date":
+        year_start = datetime(current_date.year, 1, 1)
+        filtered_data = data[data['Activity Date'] >= year_start]
+        
+    elif selected_period == "Last 6 Months":
+        # Calculate date 6 months ago
+        month = current_date.month - 6
+        year = current_date.year
+        if month <= 0:
+            month += 12
+            year -= 1
+        six_months_ago = datetime(year, month, 1)
+        filtered_data = data[data['Activity Date'] >= six_months_ago]
+        
+    elif selected_period == "Last 12 Months":
+        # Calculate date 12 months ago
+        year_ago = datetime(current_date.year - 1, current_date.month, 1)
+        filtered_data = data[data['Activity Date'] >= year_ago]
+        
+    else:  # All Time
+        filtered_data = data.copy()
+    
+    # Calculate key metrics
     total_volunteer_hours = pd.to_numeric(filtered_data['Volunteer Hours'], errors='coerce').sum()
     total_financial_impact = pd.to_numeric(filtered_data['Financial Impact'], errors='coerce').sum()
     total_activities = len(filtered_data)
     unique_charities = filtered_data['Organization'].nunique()
-    unique_sdgs = filtered_data['SDG'].nunique()
     
-    # Achievement banner (if there's a notable achievement to highlight)
-    if total_volunteer_hours > 1000 or total_financial_impact > 10000:
-        st.markdown("""
-            <div class="achievement-banner">
-                <div class="achievement-message">
-                    Congratulations! We've reached <span class="achievement-highlight">{milestone}</span> in our community impact efforts.
-                </div>
-                <div>
-                    🎉
-                </div>
+    # Display metrics in an engaging, modern layout
+    st.markdown("""
+        <div class="metrics-container">
+            <div class="metric-card" style="border-top: 4px solid #3B82F6;">
+                <div class="metric-title">VOLUNTEER HOURS</div>
+                <div class="metric-value" style="color: #3B82F6;">{:,}</div>
+                <div style="font-size: 13px; color: #64748b;">Hours contributed</div>
             </div>
-        """.format(
-            milestone=f"£{int(total_financial_impact):,} in financial impact" if total_financial_impact > 10000 
-                    else f"{int(total_volunteer_hours):,} volunteer hours"
-        ), unsafe_allow_html=True)
+            
+            <div class="metric-card" style="border-top: 4px solid #10B981;">
+                <div class="metric-title">FINANCIAL IMPACT</div>
+                <div class="metric-value" style="color: #10B981;">£{:,}</div>
+                <div style="font-size: 13px; color: #64748b;">Total contribution</div>
+            </div>
+            
+            <div class="metric-card" style="border-top: 4px solid #F59E0B;">
+                <div class="metric-title">ACTIVITIES</div>
+                <div class="metric-value" style="color: #F59E0B;">{:,}</div>
+                <div style="font-size: 13px; color: #64748b;">Community engagements</div>
+            </div>
+            
+            <div class="metric-card" style="border-top: 4px solid #8B5CF6;">
+                <div class="metric-title">CHARITY PARTNERS</div>
+                <div class="metric-value" style="color: #8B5CF6;">{:,}</div>
+                <div style="font-size: 13px; color: #64748b;">Organizations supported</div>
+            </div>
+        </div>
+    """.format(
+        int(total_volunteer_hours),
+        int(total_financial_impact),
+        total_activities,
+        unique_charities
+    ), unsafe_allow_html=True)
     
-    # Single-row metrics display using columns instead of HTML for better rendering
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric("⏱️ Volunteer Hours", f"{int(total_volunteer_hours):,}")
-    
-    with col2:
-        st.metric("💰 Financial Impact", f"£{int(total_financial_impact):,}")
-    
-    with col3:
-        st.metric("📊 Activities", f"{total_activities:,}")
-    
-    with col4:
-        st.metric("🤝 Charities", f"{unique_charities:,}")
-    
-    with col5:
-        st.metric("🌍 SDGs", f"{unique_sdgs:,}")
-    
-    # Hotel contributions section
+    # Instagram feed section - prominent placement
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header"><h2 class="section-title">Hotel Contributions</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Latest From Our Instagram</div>', unsafe_allow_html=True)
+    show_instagram_feed()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # SDG Highlights Section - improved visual design
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">SDG Impact Highlights</div>', unsafe_allow_html=True)
+    
+    # Process SDG data
+    sdg_metrics = filtered_data.groupby('SDG').size().reset_index(name='Count')
+    
+    if not sdg_metrics.empty:
+        # Sort by count and get top SDGs
+        sdg_metrics = sdg_metrics.sort_values('Count', ascending=False)
+        max_count = sdg_metrics['Count'].max()
+        
+        # Display top 3 SDGs in prominent cards
+        top_sdgs = sdg_metrics.head(3)
+        
+        # Create a responsive grid for the SDG highlight cards
+        st.markdown('<div class="grid-container">', unsafe_allow_html=True)
+        
+        # Create each highlight card
+        for _, sdg in top_sdgs.iterrows():
+            sdg_name = sdg['SDG']
+            sdg_count = sdg['Count']
+            st.markdown(create_sdg_highlight_card(sdg_name, sdg_count, max_count), unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Show remaining SDGs in a more compact format
+        if len(sdg_metrics) > 3:
+            other_sdgs = sdg_metrics.iloc[3:]
+            
+            st.markdown('<div style="margin-top: 25px;">', unsafe_allow_html=True)
+            st.markdown('<div style="font-weight: 600; font-size: 16px; margin-bottom: 15px; color: #334155;">Other SDG Contributions</div>', unsafe_allow_html=True)
+            
+            # Create a bar chart for the remaining SDGs
+            fig = px.bar(
+                other_sdgs,
+                x='SDG',
+                y='Count',
+                color='SDG',
+                color_discrete_map={sdg_name: SDG_INFO.get(sdg_name, {}).get('color', '#777777') for sdg_name in other_sdgs['SDG']},
+                template='plotly_white'
+            )
+            
+            fig.update_layout(
+                height=300,
+                margin=dict(l=20, r=20, t=10, b=40),
+                xaxis_title="",
+                yaxis_title="Activities",
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                bargap=0.4
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Hotel Contributions - improved layout
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Hotel Contributions</div>', unsafe_allow_html=True)
     
     # Process hotel data
     hotel_metrics = filtered_data.groupby('Hotel').agg({
@@ -892,7 +697,7 @@ def show_dashboard(data):
     hotel_metrics['Total Impact'] = hotel_metrics['Volunteer Hours'] + (hotel_metrics['Financial Impact'] / 100)
     hotel_metrics = hotel_metrics.sort_values('Total Impact', ascending=False)
     
-    # Create hotel impact chart
+    # Create engaging hotel impact visualizations
     col1, col2 = st.columns(2)
     
     with col1:
@@ -901,32 +706,35 @@ def show_dashboard(data):
         
         if not volunteer_hotels.empty:
             # Sort by volunteer hours
-            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False)
+            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False).head(8)
             
             fig1 = px.bar(
                 volunteer_hotels, 
-                x='Hotel', 
-                y='Volunteer Hours',
-                title=f'Volunteer Hours by Hotel ({len(volunteer_hotels)} contributing)',
-                color_discrete_sequence=['#3B82F6'],
-                template='plotly_white'
+                x='Volunteer Hours',
+                y='Hotel',
+                orientation='h',
+                color='Volunteer Hours',
+                color_continuous_scale=['#93c5fd', '#3b82f6', '#1d4ed8'],
+                template='plotly_white',
+                title=f'Top Hotels by Volunteer Hours'
             )
+            
             fig1.update_layout(
-                height=240,
-                margin=dict(l=20, r=20, t=30, b=40),
-                title_font_size=14,
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20),
+                title_font_size=16,
                 title_x=0.5,
-                xaxis_title="",
-                yaxis_title="Hours",
-                showlegend=False,
+                xaxis_title="Hours",
+                yaxis_title="",
+                coloraxis_showscale=False,
                 plot_bgcolor='rgba(0,0,0,0)',
-                bargap=0.3
+                yaxis={'categoryorder':'total ascending'}
             )
+            
             fig1.update_traces(
-                marker_line_color='#2563EB',
-                marker_line_width=1,
-                hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
+                hovertemplate="<b>%{y}</b><br>Hours: %{x:,.0f}<extra></extra>"
             )
+            
             st.plotly_chart(fig1, use_container_width=True)
         else:
             st.info("No volunteer hours recorded in this period.")
@@ -937,41 +745,92 @@ def show_dashboard(data):
         
         if not financial_hotels.empty:
             # Sort by financial impact
-            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False)
+            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False).head(8)
             
             fig2 = px.bar(
                 financial_hotels, 
-                x='Hotel', 
-                y='Financial Impact',
-                title=f'Financial Impact by Hotel ({len(financial_hotels)} contributing)',
-                color_discrete_sequence=['#10B981'],
-                template='plotly_white'
+                x='Financial Impact',
+                y='Hotel',
+                orientation='h',
+                color='Financial Impact',
+                color_continuous_scale=['#a7f3d0', '#10b981', '#065f46'],
+                template='plotly_white',
+                title=f'Top Hotels by Financial Impact'
             )
+            
             fig2.update_layout(
-                height=240,
-                margin=dict(l=20, r=20, t=30, b=40),
-                title_font_size=14,
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20),
+                title_font_size=16,
                 title_x=0.5,
-                xaxis_title="",
-                yaxis_title="Amount (£)",
-                showlegend=False,
+                xaxis_title="Amount (£)",
+                yaxis_title="",
+                coloraxis_showscale=False,
                 plot_bgcolor='rgba(0,0,0,0)',
-                bargap=0.3
+                yaxis={'categoryorder':'total ascending'}
             )
+            
             fig2.update_traces(
-                marker_line_color='#059669',
-                marker_line_width=1,
-                hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
+                hovertemplate="<b>%{y}</b><br>Amount: £%{x:,.0f}<extra></extra>"
             )
+            
             st.plotly_chart(fig2, use_container_width=True)
         else:
             st.info("No financial contributions recorded in this period.")
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Charity section
+    # Activity Timeline
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header"><h2 class="section-title">Charity Partners</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Activity Timeline</div>', unsafe_allow_html=True)
+    
+    # Create monthly activity counts
+    if not filtered_data.empty:
+        # Resample data by month
+        timeline_data = filtered_data.copy()
+        timeline_data['Month'] = timeline_data['Activity Date'].dt.to_period('M')
+        monthly_counts = timeline_data.groupby('Month').size().reset_index(name='Activities')
+        monthly_counts['Month'] = monthly_counts['Month'].dt.to_timestamp()
+        
+        # Create line chart
+        fig3 = px.line(
+            monthly_counts,
+            x='Month',
+            y='Activities',
+            markers=True,
+            line_shape='spline',
+            template='plotly_white'
+        )
+        
+        fig3.update_traces(
+            line=dict(color='#8B5CF6', width=3),
+            marker=dict(color='#ffffff', size=8, line=dict(color='#8B5CF6', width=2)),
+            hovertemplate="<b>%{x|%b %Y}</b><br>Activities: %{y}<extra></extra>"
+        )
+        
+        fig3.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=10, b=40),
+            xaxis_title="",
+            yaxis_title="Activities",
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(
+                tickformat="%b %Y",
+                tickangle=-45,
+                tickmode='auto',
+                nticks=10
+            )
+        )
+        
+        st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("No activity data available for timeline visualization.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Charity Partners Section - with engaging cards
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Charity Partner Highlights</div>', unsafe_allow_html=True)
     
     # Process charity data
     charity_metrics = filtered_data.groupby('Organization').agg({
@@ -980,365 +839,261 @@ def show_dashboard(data):
         'Activity Date': 'count'
     }).reset_index().rename(columns={'Activity Date': 'Activities'})
     
-    # Sort by activities
-    charity_metrics = charity_metrics.sort_values('Activities', ascending=False).head(8)
+    # Sort by total impact
+    charity_metrics['Total Impact'] = charity_metrics['Volunteer Hours'] + (charity_metrics['Financial Impact'] / 100)
+    charity_metrics = charity_metrics.sort_values('Total Impact', ascending=False).head(8)
     
-    # Create charity cards
-    st.markdown('<div class="charity-grid">', unsafe_allow_html=True)
-    
-    # Color palette for charity logos
-    charity_colors = ['#3B82F6', '#10B981', '#7C3AED', '#F59E0B', '#EC4899', '#EF4444', '#06B6D4', '#8B5CF6']
-    
-    for idx, charity in charity_metrics.iterrows():
-        color = charity_colors[idx % len(charity_colors)]
-        st.markdown(f"""
-            <div class="charity-card">
-                <div class="charity-header">
-                    <div class="charity-logo" style="background-color: {color};">
-                        {charity['Organization'][0].upper()}
-                    </div>
-                    <div class="charity-name" title="{charity['Organization']}">
-                        {charity['Organization']}
-                    </div>
-                </div>
-                <div class="charity-stats">
-                    <div class="charity-stat">
-                        <div class="charity-stat-value">{int(charity['Activities'])}</div>
-                        <div class="charity-stat-label">Activities</div>
-                    </div>
-                    <div class="charity-stat">
-                        <div class="charity-stat-value">{int(charity['Volunteer Hours'])}</div>
-                        <div class="charity-stat-label">Hours</div>
-                    </div>
-                    <div class="charity-stat">
-                        <div class="charity-stat-value">£{int(charity['Financial Impact']):,}</div>
-                        <div class="charity-stat-label">Impact</div>
-                    </div>
-                </div>
-            </div>
+    if not charity_metrics.empty:
+        # Color palette for charity logos
+        charity_colors = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#EF4444', '#06B6D4', '#A855F7']
+        
+        # Create charity cards with improved design
+        st.markdown("""
+            <style>
+            .charity-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 20px;
+                margin-top: 20px;
+            }
+            
+            .charity-card {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                overflow: hidden;
+                transition: all 0.3s ease;
+                height: 100%;
+            }
+            
+            .charity-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            }
+            
+            .charity-header {
+                padding: 15px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .charity-logo {
+                width: 45px;
+                height: 45px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 700;
+                font-size: 18px;
+            }
+            
+            .charity-name {
+                font-weight: 600;
+                font-size: 15px;
+                color: #0f172a;
+                line-height: 1.3;
+            }
+            
+            .charity-body {
+                padding: 0 15px 15px;
+            }
+            
+            .charity-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                margin-top: 10px;
+            }
+            
+            .charity-stat {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: center;
+            }
+            
+            .charity-stat-value {
+                font-weight: 700;
+                font-size: 16px;
+                color: #0f172a;
+            }
+            
+            .charity-stat-label {
+                font-size: 11px;
+                color: #64748b;
+                margin-top: 3px;
+            }
+            </style>
+            
+            <div class="charity-grid">
         """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # SDG section - Exciting and visually engaging format
-    st.markdown('<div class="dashboard-section" style="background: linear-gradient(135deg, #f9fafb 0%, #f1f5f9 100%);">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header"><h2 class="section-title">SDG Impact</h2></div>', unsafe_allow_html=True)
-    
-    # Process SDG data
-    sdg_metrics = filtered_data.groupby('SDG').size().reset_index(name='Count')
-    
-    if not sdg_metrics.empty:
-        # Sort by count
-        sdg_metrics = sdg_metrics.sort_values('Count', ascending=False)
         
-        # Get max count for percentage calculation
-        max_count = sdg_metrics['Count'].max()
-        
-        # Create exciting SDG display
-        st.markdown('<div class="sdg-progress-container">', unsafe_allow_html=True)
-        
-        for idx, sdg in sdg_metrics.iterrows():
-            sdg_name = sdg['SDG']
-            sdg_count = sdg['Count']
+        for idx, charity in charity_metrics.iterrows():
+            color = charity_colors[idx % len(charity_colors)]
+            first_letter = charity['Organization'][0].upper() if charity['Organization'] else '?'
             
-            # Get color and info from SDG_INFO if available, or use default
-            if sdg_name in SDG_INFO:
-                color = SDG_INFO[sdg_name]['color']
-                number = SDG_INFO[sdg_name]['number']
-                description = SDG_INFO[sdg_name]['description']
-            else:
-                color = '#777777'
-                number = ""
-                description = ""
-            
-            # Calculate percentage of the max for progress bar
-            percentage = (sdg_count / max_count) * 100
-            
-            # Create status badge based on percentage
-            if percentage >= 75:
-                badge_color = "#22c55e"
-                badge_text = "Strong"
-            elif percentage >= 50:
-                badge_color = "#eab308"
-                badge_text = "Growing"
-            else:
-                badge_color = "#3b82f6"
-                badge_text = "Building"
-            
-            # Create exciting animated SDG card
             st.markdown(f"""
-                <div class="sdg-progress-item" style="border-left: 6px solid {color};">
-                    <div class="sdg-header">
-                        <div class="sdg-icon-wrapper">
-                            <div class="sdg-icon" style="background-color: {color};">
-                                {number}
+                <div class="charity-card">
+                    <div class="charity-header">
+                        <div class="charity-logo" style="background-color: {color};">
+                            {first_letter}
+                        </div>
+                        <div class="charity-name">
+                            {charity['Organization']}
+                        </div>
+                    </div>
+                    <div class="charity-body">
+                        <div class="charity-stats">
+                            <div class="charity-stat">
+                                <div class="charity-stat-value">{int(charity['Activities'])}</div>
+                                <div class="charity-stat-label">Activities</div>
                             </div>
-                            <div class="sdg-icon-pulse" style="border: 3px solid {color};"></div>
+                            <div class="charity-stat">
+                                <div class="charity-stat-value">{int(charity['Volunteer Hours'])}</div>
+                                <div class="charity-stat-label">Hours</div>
+                            </div>
+                            <div class="charity-stat">
+                                <div class="charity-stat-value">£{int(charity['Financial Impact']):,}</div>
+                                <div class="charity-stat-label">Impact</div>
+                            </div>
                         </div>
-                        <div class="sdg-info">
-                            <div class="sdg-title">{sdg_name}</div>
-                            <div class="sdg-description">{description}</div>
-                        </div>
-                    </div>
-                    <div class="sdg-stats">
-                        <div class="sdg-count" style="color: {color};">{sdg_count}</div>
-                        <div>
-                            <span class="sdg-badge" style="background-color: {badge_color}20; color: {badge_color};">
-                                {badge_text}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="sdg-progress-bar">
-                        <div class="sdg-progress-value" style="width: {percentage}%; background-color: {color};"></div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info("No charity partnership data available for the selected period.")
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-
-def add_custom_css():
+def show_data_filters(data):
+    """Display data filters and raw data"""
+    st.header("Data Explorer")
+    
+    # Add filters with improved design
     st.markdown("""
         <style>
-        /* Main container styling */
-        .main {
-            padding: 1rem;
-        }
-        
-        /* Card styling */
-        div[data-testid="stMetric"] {
-            background-color: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
-        }
-        
-        div[data-testid="stMetric"]:hover {
-            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
-        }
-        
-        /* Metric card styling */
-        .metric-container {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 1rem;
-        }
-        
-        .metric-title {
-            font-size: 1rem;
-            color: #6B7280;
-            margin-bottom: 0.5rem;
-        }
-        
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #111827;
-        }
-        
-        /* Chart container styling */
-        .chart-container {
-            background-color: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            margin-bottom: 1rem;
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .metric-container {
-                padding: 1rem;
-            }
-            
-            .metric-value {
-                font-size: 1.25rem;
-            }
-            
-            div[data-testid="stMetric"] {
-                margin-bottom: 1rem;
-            }
-        }
-        
-        /* Custom tab styling */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2rem;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            padding: 1rem 2rem;
-            background-color: transparent;
-            border-radius: 0.5rem 0.5rem 0 0;
-        }
-        
-        .stTabs [data-baseweb="tab-highlight"] {
-            background-color: #3B82F6;
-        }
-        
-        /* Title styling */
-        h1 {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #111827;
-            margin-bottom: 2rem;
-        }
-        
-        h2 {
-            font-size: 1.5rem;
-            color: #374151;
-            margin: 1.5rem 0;
-        }
-        
-        /* SDG section styling */
-        .sdg-circle {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            margin: 0 auto;
+        .filter-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
         }
         </style>
     """, unsafe_allow_html=True)
-
-def show_instagram_feed():
-    """Display the Instagram feed for 4C Group"""
-    # Add a loading spinner while fetching posts
-    with st.spinner('Fetching latest Instagram posts...'):
-        # Cache the results for 1 hour
-        @st.cache_data(ttl=3600)
-        def get_instagram_feed():
-            return fetch_instagram_posts(username="4cgroup_hq", limit=6)
-        
-        posts = get_instagram_feed()
     
-    if posts:
-        # Add some styling for the Instagram feed
-        st.markdown("""
-            <style>
-            .instagram-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 16px;
-                margin-top: 20px;
-            }
-            .instagram-card {
-                background-color: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                overflow: hidden;
-                transition: transform 0.3s ease;
-            }
-            .instagram-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-            }
-            .instagram-content {
-                padding: 12px;
-            }
-            .instagram-caption {
-                font-size: 14px;
-                line-height: 1.4;
-                margin: 10px 0;
-                color: #1e293b;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-            }
-            .instagram-meta {
-                display: flex;
-                justify-content: space-between;
-                color: #6B7280;
-                font-size: 12px;
-                margin-bottom: 8px;
-            }
-            .instagram-link {
-                display: inline-block;
-                padding: 6px 12px;
-                background-color: #E1306C;
-                color: white;
-                text-decoration: none;
-                border-radius: 4px;
-                font-size: 12px;
-                transition: background-color 0.2s;
-            }
-            .instagram-link:hover {
-                background-color: #c13584;
-            }
-            </style>
-        """, unsafe_allow_html=True)
+    st.markdown('<div class="filter-container">', unsafe_allow_html=True)
+    st.subheader("Data Filters")
+    
+    cols = st.columns(4)
+    
+    with cols[0]:
+        hotels = ['All'] + sorted(data['Hotel'].unique().tolist())
+        selected_hotel = st.selectbox('Hotel:', hotels)
+    
+    with cols[1]:
+        sdgs = ['All'] + sorted(data['SDG'].unique().tolist())
+        selected_sdg = st.selectbox('SDG:', sdgs)
+    
+    with cols[2]:
+        contribution_types = ['All'] + sorted(data['Contribution Type'].unique().tolist())
+        selected_type = st.selectbox('Contribution Type:', contribution_types)
+    
+    with cols[3]:
+        date_range = st.date_input(
+            "Date Range:",
+            value=(data['Activity Date'].min(), data['Activity Date'].max()),
+            min_value=data['Activity Date'].min().date(),
+            max_value=data['Activity Date'].max().date()
+        )
+    
+    # Apply filters
+    filtered_data = data.copy()
+    
+    if selected_hotel != 'All':
+        filtered_data = filtered_data[filtered_data['Hotel'] == selected_hotel]
+    if selected_sdg != 'All':
+        filtered_data = filtered_data[filtered_data['SDG'] == selected_sdg]
+    if selected_type != 'All':
+        filtered_data = filtered_data[filtered_data['Contribution Type'] == selected_type]
+    if len(date_range) == 2:
+        filtered_data = filtered_data[
+            (filtered_data['Activity Date'].dt.date >= date_range[0]) &
+            (filtered_data['Activity Date'].dt.date <= date_range[1])
+        ]
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Show filtered data with improved design
+    if not filtered_data.empty:
+        st.markdown(f"<div style='margin-bottom: 10px;'><b>{len(filtered_data)}</b> activities found matching your filters.</div>", unsafe_allow_html=True)
         
-        # Start grid container
-        st.markdown('<div class="instagram-grid">', unsafe_allow_html=True)
+        st.dataframe(
+            filtered_data.sort_values('Activity Date', ascending=False),
+            use_container_width=True,
+            column_config={
+                "Activity Date": st.column_config.DateColumn("Activity Date", format="DD/MM/YYYY"),
+                "Financial Impact": st.column_config.NumberColumn(
+                    "Financial Impact",
+                    format="£%.0f"
+                ),
+                "Volunteer Hours": st.column_config.NumberColumn(
+                    "Volunteer Hours",
+                    format="%.0f"
+                )
+            }
+        )
         
-        # Display posts in grid
-        for post in posts:
-            if 'image_data' in post:
-                # Create Instagram card HTML
-                st.markdown(f"""
-                    <div class="instagram-card">
-                        <img src="data:image/jpeg;base64,{encode_image(post['image_data'])}" width="100%" alt="Instagram post" />
-                        <div class="instagram-content">
-                            <div class="instagram-meta">
-                                <span>📅 {post['date'].strftime('%d %b %Y')}</span>
-                                <span>❤️ {post['likes']}</span>
-                            </div>
-                            <div class="instagram-caption">
-                                {post['caption'][:100] + "..." if len(post['caption']) > 100 else post['caption']}
-                            </div>
-                            <a href="https://www.instagram.com/p/{post['shortcode']}/" class="instagram-link" target="_blank">
-                                View on Instagram
-                            </a>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-        
-        # End grid container
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Add link to full Instagram profile
-        st.markdown("""
-            <div style="text-align: center; margin-top: 20px;">
-                <a href="https://www.instagram.com/4cgroup_hq/" target="_blank" style="text-decoration: none; color: #4B5563; font-size: 14px;">
-                    View all posts on Instagram
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
+        # Add download button with improved design
+        csv = filtered_data.to_csv(index=False)
+        st.download_button(
+            label="📊 Download Data as CSV",
+            data=csv,
+            file_name="esg_activities.csv",
+            mime="text/csv",
+        )
     else:
-        st.error("Unable to fetch Instagram posts. Please try again later.")
-        
-        # Add a fallback iframe option
-        st.markdown("""
-            <iframe src="https://www.instagram.com/4cgroup_hq/embed" 
-                width="100%" 
-                height="450" 
-                frameborder="0" 
-                scrolling="no" 
-                allowtransparency="true">
-            </iframe>
-        """, unsafe_allow_html=True)
-
-# Helper function to encode image data as base64
-def encode_image(image_data):
-    import base64
-    return base64.b64encode(image_data).decode('utf-8')
+        st.warning("No data matches your current filter selections. Try adjusting your filters.")
 
 def main():
-    st.title("ESG Impact Dashboard")
+    # Apply custom styling for the entire app
+    st.markdown("""
+        <style>
+        /* Overall app styling */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        
+        /* Better header spacing */
+        h1, h2, h3, h4 {
+            margin-top: 0 !important;
+        }
+        
+        /* Fix for metric hover */
+        div[data-testid="stMetric"] {
+            background-color: transparent;
+            box-shadow: none;
+        }
+        
+        div[data-testid="stMetric"]:hover {
+            box-shadow: none;
+        }
+        
+        /* Better tab styling */
+        button[data-baseweb="tab"] {
+            font-weight: 600;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
     # Create tabs with enhanced styling
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "🎯 SDG Information", "📝 Submit Activity", "📋 Raw Data"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "🎯 SDG Information", "📝 Submit Activity", "📋 Data Explorer"])
     
     with tab1:
         try:
@@ -1346,218 +1101,11 @@ def main():
             if not data.empty:
                 processed_data = reshape_survey_data(data)
                 if not processed_data.empty:
-                    # Introduction with engaging header - more concise
-                    st.markdown("""
-                        <div class="dashboard-header" style="text-align: center; margin-bottom: 20px;">
-                            <h1 style="font-size: 28px; margin-bottom: 4px; color: #1e293b;">Making an Impact Together</h1>
-                            <p style="color: #64748b; font-size: 16px; max-width: 700px; margin: 0 auto 10px auto;">
-                                Tracking our journey towards a sustainable future through community engagement.
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Calculate key metrics for the top panel
-                    total_volunteer_hours = pd.to_numeric(processed_data['Volunteer Hours'], errors='coerce').sum()
-                    total_financial_impact = pd.to_numeric(processed_data['Financial Impact'], errors='coerce').sum()
-                    total_activities = len(processed_data)
-                    
-                    # Display key metrics in a more concise format
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("⏱️ Volunteer Hours", f"{int(total_volunteer_hours):,}")
-                    with col2:
-                        st.metric("💰 Financial Impact", f"£{int(total_financial_impact):,}")
-                    with col3:
-                        st.metric("📊 Activities", f"{total_activities:,}")
-                    
-                    # Add Instagram feed in a more prominent position after the metrics
-                    st.markdown('<div class="dashboard-section" style="margin-top: 25px; margin-bottom: 30px;">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">Latest From Our Instagram</h2></div>', unsafe_allow_html=True)
-                    show_instagram_feed()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # Continue with the rest of the dashboard content
-                    # SDG section
-                    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">SDG Impact</h2></div>', unsafe_allow_html=True)
-                    
-                    # Process SDG data
-                    sdg_metrics = processed_data.groupby('SDG').size().reset_index(name='Count')
-                    
-                    if not sdg_metrics.empty:
-                        # Sort by count
-                        sdg_metrics = sdg_metrics.sort_values('Count', ascending=False)
-                        
-                        # Get max count for percentage calculation
-                        max_count = sdg_metrics['Count'].max()
-                        
-                        # Create exciting SDG display
-                        st.markdown('<div class="sdg-progress-container" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">', unsafe_allow_html=True)
-                        
-                        for idx, sdg in sdg_metrics.iterrows():
-                            sdg_name = sdg['SDG']
-                            sdg_count = sdg['Count']
-                            
-                            # Get color and info from SDG_INFO if available, or use default
-                            if sdg_name in SDG_INFO:
-                                color = SDG_INFO[sdg_name]['color']
-                                number = SDG_INFO[sdg_name]['number']
-                                description = SDG_INFO[sdg_name]['description']
-                            else:
-                                color = '#777777'
-                                number = ""
-                                description = ""
-                            
-                            # Calculate percentage of the max for progress bar
-                            percentage = (sdg_count / max_count) * 100
-                            
-                            # Create status badge based on percentage
-                            if percentage >= 75:
-                                badge_color = "#22c55e"
-                                badge_text = "Strong"
-                            elif percentage >= 50:
-                                badge_color = "#eab308"
-                                badge_text = "Growing"
-                            else:
-                                badge_color = "#3b82f6"
-                                badge_text = "Building"
-                            
-                            # Create exciting animated SDG card
-                            st.markdown(f"""
-                                <div style="border-left: 6px solid {color}; flex: 1; min-width: 200px; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); padding: 12px; position: relative; transition: all 0.3s ease; overflow: hidden;">
-                                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                                        <div style="position: relative; margin-right: 12px;">
-                                            <div style="width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; background-color: {color}; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);">
-                                                {number}
-                                            </div>
-                                        </div>
-                                        <div style="flex: 1;">
-                                            <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 3px;">
-                                                {sdg_name}
-                                            </div>
-                                            <div style="font-size: 12px; color: #64748b; line-height: 1.4;">
-                                                {description[:80]}...
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                                        <div style="font-size: 24px; font-weight: 700; color: {color};">
-                                            {sdg_count}
-                                        </div>
-                                        <div>
-                                            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; background-color: {badge_color}20; color: {badge_color};">
-                                                {badge_text}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div style="height: 6px; background-color: #e2e8f0; border-radius: 3px; margin-top: 10px; overflow: hidden;">
-                                        <div style="height: 100%; border-radius: 3px; width: {percentage}%; background-color: {color}; transition: width 1.5s ease;">
-                                        </div>
-                                    </div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # Hotel contributions section (if you want to keep it)
-                    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-header"><h2 class="section-title" style="font-size: 20px; margin-bottom: 15px; color: #334155;">Hotel Contributions</h2></div>', unsafe_allow_html=True)
-                    
-                    # Process hotel data
-                    hotel_metrics = processed_data.groupby('Hotel').agg({
-                        'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
-                        'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
-                        'Activity Date': 'count'
-                    }).reset_index().rename(columns={'Activity Date': 'Activities'})
-                    
-                    # Sort by total impact
-                    hotel_metrics['Total Impact'] = hotel_metrics['Volunteer Hours'] + (hotel_metrics['Financial Impact'] / 100)
-                    hotel_metrics = hotel_metrics.sort_values('Total Impact', ascending=False)
-                    
-                    # Create hotel impact chart
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        # Filter to only show hotels with volunteer hours > 0
-                        volunteer_hotels = hotel_metrics[hotel_metrics['Volunteer Hours'] > 0].copy()
-                        
-                        if not volunteer_hotels.empty:
-                            # Sort by volunteer hours
-                            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False)
-                            
-                            fig1 = px.bar(
-                                volunteer_hotels, 
-                                x='Hotel', 
-                                y='Volunteer Hours',
-                                title=f'Volunteer Hours by Hotel ({len(volunteer_hotels)} contributing)',
-                                color_discrete_sequence=['#3B82F6'],
-                                template='plotly_white'
-                            )
-                            fig1.update_layout(
-                                height=240,
-                                margin=dict(l=20, r=20, t=30, b=40),
-                                title_font_size=14,
-                                title_x=0.5,
-                                xaxis_title="",
-                                yaxis_title="Hours",
-                                showlegend=False,
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                bargap=0.3
-                            )
-                            fig1.update_traces(
-                                marker_line_color='#2563EB',
-                                marker_line_width=1,
-                                hovertemplate="<b>%{x}</b><br>Hours: %{y:,.0f}<extra></extra>"
-                            )
-                            st.plotly_chart(fig1, use_container_width=True)
-                        else:
-                            st.info("No volunteer hours recorded in this period.")
-                    
-                    with col2:
-                        # Filter to only show hotels with financial impact > 0
-                        financial_hotels = hotel_metrics[hotel_metrics['Financial Impact'] > 0].copy()
-                        
-                        if not financial_hotels.empty:
-                            # Sort by financial impact
-                            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False)
-                            
-                            fig2 = px.bar(
-                                financial_hotels, 
-                                x='Hotel', 
-                                y='Financial Impact',
-                                title=f'Financial Impact by Hotel ({len(financial_hotels)} contributing)',
-                                color_discrete_sequence=['#10B981'],
-                                template='plotly_white'
-                            )
-                            fig2.update_layout(
-                                height=240,
-                                margin=dict(l=20, r=20, t=30, b=40),
-                                title_font_size=14,
-                                title_x=0.5,
-                                xaxis_title="",
-                                yaxis_title="Amount (£)",
-                                showlegend=False,
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                bargap=0.3
-                            )
-                            fig2.update_traces(
-                                marker_line_color='#059669',
-                                marker_line_width=1,
-                                hovertemplate="<b>%{x}</b><br>Amount: £%{y:,.0f}<extra></extra>"
-                            )
-                            st.plotly_chart(fig2, use_container_width=True)
-                        else:
-                            st.info("No financial contributions recorded in this period.")
-                    
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    show_dashboard(processed_data)
+                    show_overview_dashboard(processed_data)
                 else:
-                    st.error("Failed to process data")
+                    st.error("Failed to process data. Please check the data format.")
             else:
-                st.error("No data found in Google Sheet")
+                st.error("No data found in Google Sheet. Please check your connection and data source.")
                 
         except Exception as e:
             st.error(f"Error accessing Google Sheets: {str(e)}")
@@ -1581,77 +1129,16 @@ def main():
         """, unsafe_allow_html=True)
     
     with tab4:
-        st.header("Raw Data")
         try:
             data = fetch_sheet_data()
             if not data.empty:
                 processed_data = reshape_survey_data(data)
                 if not processed_data.empty:
-                    # Add filters
-                    st.subheader("Data Filters")
-                    cols = st.columns(4)
-                    
-                    with cols[0]:
-                        hotels = ['All'] + sorted(processed_data['Hotel'].unique().tolist())
-                        selected_hotel = st.selectbox('Select Hotel', hotels)
-                    
-                    with cols[1]:
-                        sdgs = ['All'] + sorted(processed_data['SDG'].unique().tolist())
-                        selected_sdg = st.selectbox('Select SDG', sdgs)
-                    
-                    with cols[2]:
-                        contribution_types = ['All'] + sorted(processed_data['Contribution Type'].unique().tolist())
-                        selected_type = st.selectbox('Select Contribution Type', contribution_types)
-                    
-                    with cols[3]:
-                        date_range = st.date_input(
-                            "Select Date Range",
-                            value=(processed_data['Activity Date'].min(), processed_data['Activity Date'].max()),
-                            min_value=processed_data['Activity Date'].min().date(),
-                            max_value=processed_data['Activity Date'].max().date()
-                        )
-                    
-                    # Apply filters
-                    filtered_data = processed_data.copy()
-                    
-                    if selected_hotel != 'All':
-                        filtered_data = filtered_data[filtered_data['Hotel'] == selected_hotel]
-                    if selected_sdg != 'All':
-                        filtered_data = filtered_data[filtered_data['SDG'] == selected_sdg]
-                    if selected_type != 'All':
-                        filtered_data = filtered_data[filtered_data['Contribution Type'] == selected_type]
-                    if len(date_range) == 2:
-                        filtered_data = filtered_data[
-                            (filtered_data['Activity Date'].dt.date >= date_range[0]) &
-                            (filtered_data['Activity Date'].dt.date <= date_range[1])
-                        ]
-                    
-                    # Show filtered data
-                    st.dataframe(
-                        filtered_data.sort_values('Activity Date', ascending=False),
-                        use_container_width=True,
-                        column_config={
-                            "Activity Date": st.column_config.DateColumn("Activity Date", format="DD/MM/YYYY"),
-                            "Financial Impact": st.column_config.NumberColumn(
-                                "Financial Impact",
-                                format="£%.0f"
-                            ),
-                            "Volunteer Hours": st.column_config.NumberColumn(
-                                "Volunteer Hours",
-                                format="%.0f"
-                            )
-                        }
-                    )
-                    
-                    # Add download button
-                    csv = filtered_data.to_csv(index=False)
-                    st.download_button(
-                        label="Download filtered data as CSV",
-                        data=csv,
-                        file_name="esg_activities.csv",
-                        mime="text/csv"
-                    )
-                    
+                    show_data_filters(processed_data)
+                else:
+                    st.error("Failed to process data. Please check the data format.")
+            else:
+                st.error("No data found in Google Sheet. Please check your connection and data source.")
         except Exception as e:
             st.error(f"Error loading raw data: {str(e)}")
 

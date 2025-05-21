@@ -778,67 +778,284 @@ def show_overview_dashboard(data):
                 yaxis={'categoryorder':'total ascending'}
             )
 
-# SECTION 2: Charity Partners - moved up
+    # Fix for the charity cards section
+    # Place this inside the show_overview_dashboard function, replacing the existing charity cards code
+
+    # SECTION 2: Charity Partners - moved up
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
     st.markdown('<div class="section-header">Charity Partner Highlights</div>', unsafe_allow_html=True)
-    
+
     # Process charity data
     charity_metrics = filtered_data.groupby('Organization').agg({
         'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
         'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
         'Activity Date': 'count'
     }).reset_index().rename(columns={'Activity Date': 'Activities'})
-    
+
     # Sort by total impact
     charity_metrics['Total Impact'] = charity_metrics['Volunteer Hours'] + (charity_metrics['Financial Impact'] / 100)
     charity_metrics = charity_metrics.sort_values('Total Impact', ascending=False).head(8)
-    
-    # Create charity cards
+
     if not charity_metrics.empty:
+        # Add the CSS first - this is important to make sure the styles apply
+        st.markdown("""
+            <style>
+            .charity-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 20px;
+                margin-top: 20px;
+            }
+            
+            .charity-card {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                overflow: hidden;
+                transition: all 0.3s ease;
+                height: 100%;
+            }
+            
+            .charity-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            }
+            
+            .charity-header {
+                padding: 15px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .charity-logo {
+                width: 45px;
+                height: 45px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 700;
+                font-size: 18px;
+            }
+            
+            .charity-name {
+                font-weight: 600;
+                font-size: 15px;
+                color: #0f172a;
+                line-height: 1.3;
+            }
+            
+            .charity-body {
+                padding: 0 15px 15px;
+            }
+            
+            .charity-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                margin-top: 10px;
+            }
+            
+            .charity-stat {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: center;
+            }
+            
+            .charity-stat-value {
+                font-weight: 700;
+                font-size: 16px;
+                color: #0f172a;
+            }
+            
+            .charity-stat-label {
+                font-size: 11px;
+                color: #64748b;
+                margin-top: 3px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
         # Color palette for charity logos
         charity_colors = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#EF4444', '#06B6D4', '#A855F7']
         
-        # Create HTML for the charity grid
-        charity_html = '<div class="charity-grid">'
+        # Use st.columns for layout instead of HTML grid
+        cols = st.columns(4)
         
-        for idx, charity in charity_metrics.iterrows():
-            color = charity_colors[idx % len(charity_colors)]
+        for i, (_, charity) in enumerate(charity_metrics.iterrows()):
+            color = charity_colors[i % len(charity_colors)]
             first_letter = charity['Organization'][0].upper() if charity['Organization'] else '?'
             
-            charity_html += f"""
-                <div class="charity-card">
-                    <div class="charity-header">
-                        <div class="charity-logo" style="background-color: {color};">
-                            {first_letter}
+            with cols[i % 4]:
+                st.markdown(f"""
+                    <div class="charity-card">
+                        <div class="charity-header">
+                            <div class="charity-logo" style="background-color: {color};">
+                                {first_letter}
+                            </div>
+                            <div class="charity-name">
+                                {charity['Organization']}
+                            </div>
                         </div>
-                        <div class="charity-name">
-                            {charity['Organization']}
+                        <div class="charity-body">
+                            <div class="charity-stats">
+                                <div class="charity-stat">
+                                    <div class="charity-stat-value">{int(charity['Activities'])}</div>
+                                    <div class="charity-stat-label">Activities</div>
+                                </div>
+                                <div class="charity-stat">
+                                    <div class="charity-stat-value">{int(charity['Volunteer Hours'])}</div>
+                                    <div class="charity-stat-label">Hours</div>
+                                </div>
+                                <div class="charity-stat">
+                                    <div class="charity-stat-value">£{int(charity['Financial Impact']):,}</div>
+                                    <div class="charity-stat-label">Impact</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="charity-body">
-                        <div class="charity-stats">
-                            <div class="charity-stat">
-                                <div class="charity-stat-value">{int(charity['Activities'])}</div>
-                                <div class="charity-stat-label">Activities</div>
-                            </div>
-                            <div class="charity-stat">
-                                <div class="charity-stat-value">{int(charity['Volunteer Hours'])}</div>
-                                <div class="charity-stat-label">Hours</div>
-                            </div>
-                            <div class="charity-stat">
-                                <div class="charity-stat-value">£{int(charity['Financial Impact']):,}</div>
-                                <div class="charity-stat-label">Impact</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            """
-        
-        charity_html += '</div>'
-        st.markdown(charity_html, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
     else:
         st.info("No charity partnership data available for the selected period.")
-    
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+    # Fix for the Hotel Contributions section
+    # Place this inside the show_overview_dashboard function, replacing the existing hotel contributions code
+
+    # SECTION 1: Hotel Contributions - moved up
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Hotel Contributions</div>', unsafe_allow_html=True)
+
+    # Process hotel data
+    hotel_metrics = filtered_data.groupby('Hotel').agg({
+        'Volunteer Hours': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+        'Financial Impact': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+        'Activity Date': 'count'
+    }).reset_index().rename(columns={'Activity Date': 'Activities'})
+
+    # Sort by total impact
+    hotel_metrics['Total Impact'] = hotel_metrics['Volunteer Hours'] + (hotel_metrics['Financial Impact'] / 100)
+    hotel_metrics = hotel_metrics.sort_values('Total Impact', ascending=False)
+
+    # Create engaging hotel impact visualizations
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Filter to only show hotels with volunteer hours > 0
+        volunteer_hotels = hotel_metrics[hotel_metrics['Volunteer Hours'] > 0].copy()
+        
+        if not volunteer_hotels.empty:
+            # Sort by volunteer hours
+            volunteer_hotels = volunteer_hotels.sort_values('Volunteer Hours', ascending=False).head(8)
+            
+            fig1 = px.bar(
+                volunteer_hotels, 
+                x='Volunteer Hours',
+                y='Hotel',
+                orientation='h',
+                color='Volunteer Hours',
+                color_continuous_scale=['#93c5fd', '#3b82f6', '#1d4ed8'],
+                template='plotly_white',
+                title=f'Top Hotels by Volunteer Hours'
+            )
+            
+            fig1.update_layout(
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20),
+                title_font_size=16,
+                title_x=0.5,
+                xaxis_title="Hours",
+                yaxis_title="",
+                coloraxis_showscale=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                yaxis={'categoryorder':'total ascending'}
+            )
+            
+            fig1.update_traces(
+                hovertemplate="<b>%{y}</b><br>Hours: %{x:,.0f}<extra></extra>"
+            )
+            
+            st.plotly_chart(fig1, use_container_width=True)
+        else:
+            st.info("No volunteer hours recorded in this period.")
+
+    with col2:
+        # Make sure to include this check to display financial impact
+        # Filter to only show hotels with financial impact > 0
+        financial_hotels = hotel_metrics[hotel_metrics['Financial Impact'] > 0].copy()
+        
+        if not financial_hotels.empty:
+            # Sort by financial impact
+            financial_hotels = financial_hotels.sort_values('Financial Impact', ascending=False).head(8)
+            
+            # Create a bar chart for financial impact
+            fig2 = px.bar(
+                financial_hotels, 
+                x='Financial Impact',
+                y='Hotel',
+                orientation='h',
+                color='Financial Impact',
+                color_continuous_scale=['#a7f3d0', '#10b981', '#065f46'],
+                template='plotly_white',
+                title=f'Top Hotels by Financial Impact'
+            )
+            
+            fig2.update_layout(
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20),
+                title_font_size=16,
+                title_x=0.5,
+                xaxis_title="Amount (£)",
+                yaxis_title="",
+                coloraxis_showscale=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                yaxis={'categoryorder':'total ascending'}
+            )
+            
+            fig2.update_traces(
+                hovertemplate="<b>%{y}</b><br>Amount: £%{x:,.0f}<extra></extra>"
+            )
+            
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No financial contributions recorded in this period.")
+
+    # Show more detailed information in a table
+    with st.expander("View Detailed Hotel Contributions"):
+        if not hotel_metrics.empty:
+            # Calculate percentage contribution for better visualization
+            total_vol_hours = hotel_metrics['Volunteer Hours'].sum()
+            total_fin_impact = hotel_metrics['Financial Impact'].sum()
+            
+            if total_vol_hours > 0:
+                hotel_metrics['Vol Hours %'] = (hotel_metrics['Volunteer Hours'] / total_vol_hours * 100).round(1)
+            else:
+                hotel_metrics['Vol Hours %'] = 0
+                
+            if total_fin_impact > 0:
+                hotel_metrics['Fin Impact %'] = (hotel_metrics['Financial Impact'] / total_fin_impact * 100).round(1)
+            else:
+                hotel_metrics['Fin Impact %'] = 0
+            
+            # Display a formatted table
+            st.dataframe(
+                hotel_metrics[['Hotel', 'Activities', 'Volunteer Hours', 'Vol Hours %', 'Financial Impact', 'Fin Impact %']],
+                use_container_width=True,
+                column_config={
+                    "Volunteer Hours": st.column_config.NumberColumn("Volunteer Hours", format="%.0f"),
+                    "Vol Hours %": st.column_config.NumberColumn("% of Hours", format="%.1f%%"),
+                    "Financial Impact": st.column_config.NumberColumn("Financial Impact", format="£%.0f"),
+                    "Fin Impact %": st.column_config.NumberColumn("% of Impact", format="%.1f%%")
+                }
+            )
+        else:
+            st.info("No hotel contribution data available for the selected period.")
+
     st.markdown('</div>', unsafe_allow_html=True)
     
     # SECTION 3: Instagram feed section
